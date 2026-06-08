@@ -30,6 +30,14 @@ function App() {
   const [novaDescricao, setNovaDescricao] = useState('');
   const [novoValor, setNovoValor] = useState('');
 
+  // --- NOVOS ESTADOS: CALCULADORA DE RESCISÃO ---
+  const [salarioBase, setSalarioBase] = useState('');
+  const [admissao, setAdmissao] = useState('');
+  const [demissao, setDemissao] = useState('');
+  const [tipoRescisao, setTipoRescisao] = useState('sem_justa_causa');
+  const [resultadoRescisao, setResultadoRescisao] = useState(null);
+
+
   // --- MÁSCARAS E FORMATAÇÕES ---
   const handleCnpjChange = (e) => {
     let value = e.target.value.replace(/\D/g, '');
@@ -184,11 +192,62 @@ function App() {
     doc.save(nomeArquivo);
   };
 
+
+  // --- LÓGICA DE RESCISÃO ---
+  const calcularRescisao = () => {
+    const salario = parseFloat(salarioBase);
+
+    if (!salario || !admissao || !demissao) {
+      return alert("Preencha todos os campos!");
+    }
+
+    const d1 = new Date(admissao);
+    const d2 = new Date(demissao);
+
+    const diffTime = Math.abs(d2 - d1);
+    const mesesTrabalhados = Math.floor(
+      diffTime / (1000 * 60 * 60 * 24 * 30)
+    );
+
+    const saldoSalario = (salario / 30) * d2.getDate();
+    const decimoTerceiro = (salario / 12) * (d2.getMonth() + 1);
+
+    const feriasBase =
+      (salario / 12) * (mesesTrabalhados % 12);
+
+    const feriasComTerco =
+      feriasBase + (feriasBase / 3);
+
+    let multaFgts = 0;
+
+    if (tipoRescisao === 'sem_justa_causa') {
+      multaFgts = salario * 0.40;
+    }
+
+    if (tipoRescisao === 'acordo') {
+      multaFgts = salario * 0.20;
+    }
+
+    setResultadoRescisao({
+      saldoSalario,
+      decimoTerceiro,
+      ferias: feriasComTerco,
+      multaFgts,
+      total:
+        saldoSalario +
+        decimoTerceiro +
+        feriasComTerco +
+        multaFgts,
+    });
+  };
+
+
   // ==========================================
   // ESTADOS E LÓGICAS DA NOVA ABA: CALCULADORA (APENAS FGTS)
   // ==========================================
   const [salarioBrutoCalc, setSalarioBrutoCalc] = useState('');
   const [resultadoCalc, setResultadoCalc] = useState(null);
+  const [fgtsResultado, setFgtsResultado] = useState(null);
 
   const handleSalarioBrutoCalcChange = (e) => {
     let value = e.target.value.replace(/\D/g, ''); 
@@ -214,6 +273,8 @@ function App() {
       bruto,
       fgts
     });
+
+    setFgtsResultado(fgts);
   };
 
   return (
@@ -442,63 +503,110 @@ function App() {
           </div>
 
         ) : (
+          <div className="p-8 max-w-2xl mx-auto w-full animate-in slide-in-from-right duration-500">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">
+              Calculadora de Rescisão
+            </h2>
 
-          <div className="p-8 max-w-7xl mx-auto w-full animate-in slide-in-from-right duration-500 flex flex-col items-center">
-            
-            <div className="mb-8 text-center w-full max-w-md">
-              <h2 className="text-2xl font-bold text-gray-900">Calculadora de FGTS</h2>
-              <p className="text-gray-500 text-sm mt-1">Simule rapidamente o valor do Fundo de Garantia por Tempo de Serviço (FGTS).</p>
-            </div>
-
-            <div className="w-full max-w-md">
-              <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
-                <h3 className="text-lg font-semibold text-gray-900 mb-6 text-center">Simulação Rápida</h3>
-                
-                <div className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Salário Bruto</label>
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-medium">R$</span>
-                      <input 
-                        type="text" 
-                        value={salarioBrutoCalc}
-                        onChange={handleSalarioBrutoCalcChange}
-                        placeholder="0,00" 
-                        className="w-full border border-gray-300 rounded-lg pl-12 pr-4 py-3 text-lg focus:ring-2 focus:ring-blue-500 outline-none" 
-                      />
-                    </div>
-                  </div>
-                  <div className="pt-2">
-                    <button 
-                      onClick={calcularFGTS}
-                      className="w-full bg-slate-800 text-white font-bold py-3 rounded-lg hover:bg-slate-700 transition-all flex justify-center items-center space-x-2"
-                    >
-                      <span>🧮</span>
-                      <span>Calcular FGTS</span>
-                    </button>
-                  </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Salário Base (R$)
+                  </label>
+                  <input
+                    type="text"
+                    value={salarioBase}
+                    onChange={(e) => setSalarioBase(e.target.value)}
+                    className="w-full border p-2 rounded"
+                    placeholder="3200,00"
+                  />
                 </div>
 
-                {resultadoCalc && (
-                  <div className="mt-8 bg-blue-50/70 border border-blue-200 rounded-xl p-6 shadow-inner animate-in fade-in zoom-in duration-300">
-                    <h4 className="text-lg font-bold text-slate-800 mb-4 border-b border-blue-200 pb-2 text-center">Resultado da Simulação</h4>
-                    
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-slate-600 font-medium">Salário Bruto Base</span>
-                        <span className="text-slate-900 font-semibold">{formatarMoeda(resultadoCalc.bruto)}</span>
-                      </div>
-                      
-                      <div className="pt-3 flex justify-between items-center">
-                        <span className="text-blue-800 font-bold">Valor do FGTS</span>
-                        <span className="text-2xl text-blue-700 font-bold">{formatarMoeda(resultadoCalc.fgts)}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Tipo de Rescisão
+                  </label>
+                  <select
+                    value={tipoRescisao}
+                    onChange={(e) => setTipoRescisao(e.target.value)}
+                    className="w-full border p-2 rounded"
+                  >
+                    <option value="sem_justa_causa">Sem Justa Causa</option>
+                    <option value="pedido_demissao">Pedido de Demissão</option>
+                    <option value="justa_causa">Justa Causa</option>
+                    <option value="acordo">Acordo (Art. 484-A)</option>
+                  </select>
+                </div>
 
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Data Admissão
+                  </label>
+                  <input
+                    type="date"
+                    value={admissao}
+                    onChange={(e) => setAdmissao(e.target.value)}
+                    className="w-full border p-2 rounded"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Data Desligamento
+                  </label>
+                  <input
+                    type="date"
+                    value={demissao}
+                    onChange={(e) => setDemissao(e.target.value)}
+                    className="w-full border p-2 rounded"
+                  />
+                </div>
+              </div>
+
+              <button
+                onClick={calcularRescisao}
+                className="w-full bg-slate-800 text-white font-bold py-3 rounded-lg hover:bg-slate-700 transition-all"
+              >
+                Calcular Rescisão
+              </button>
+
+              {resultadoRescisao && (
+                <div className="mt-8 p-6 bg-slate-50 rounded-lg border border-slate-200">
+                  <h4 className="font-bold text-lg mb-4">
+                    Resumo do Cálculo
+                  </h4>
+
+                  <div className="space-y-2 text-sm">
+                    <p>
+                      Saldo de Salário:{' '}
+                      {formatarMoeda(resultadoRescisao.saldoSalario)}
+                    </p>
+
+                    <p>
+                      13º Salário:{' '}
+                      {formatarMoeda(resultadoRescisao.decimoTerceiro)}
+                    </p>
+
+                    <p>
+                      Férias + 1/3:{' '}
+                      {formatarMoeda(resultadoRescisao.ferias)}
+                    </p>
+
+                    {resultadoRescisao.multaFgts > 0 && (
+                      <p className="text-red-600 font-medium">
+                        Multa FGTS:{' '}
+                        {formatarMoeda(resultadoRescisao.multaFgts)}
+                      </p>
+                    )}
+
+                    <p className="font-bold text-xl mt-4 border-t pt-2">
+                      Total: {formatarMoeda(resultadoRescisao.total)}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </main>
