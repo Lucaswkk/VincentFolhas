@@ -46,11 +46,12 @@ function App() {
   const [resultadoRescisao, setResultadoRescisao] = useState(null);
 
   // ==========================================
-  // ESTADOS DA ABA: CALCULADORA (HORA EXTRA)
+  // ESTADOS DA ABA: CALCULADORA RÁPIDA
   // ==========================================
   const [salarioBaseHE, setSalarioBaseHE] = useState('');
-  const [horasExtras, setHorasExtras] = useState('');
-  const [percentualHE, setPercentualHE] = useState('50');
+  const [tipoCalculoRapido, setTipoCalculoRapido] = useState('he_50');
+  const [tempoCalculadora, setTempoCalculadora] = useState('');
+  const [diasCalculadora, setDiasCalculadora] = useState('');
   const [resultadoHE, setResultadoHE] = useState(null);
 
   // --- MÁSCARAS E FORMATAÇÕES ---
@@ -73,7 +74,6 @@ function App() {
     return v;
   };
 
-  const handleHorasChange = (e) => setHorasExtras(aplicarMascaraHora(e.target.value));
   const handleTempoHEFixaChange = (e) => setTempoHEFixa(aplicarMascaraHora(e.target.value));
 
   const formatarNumeroBr = (valor) => valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -119,6 +119,18 @@ function App() {
         const valorTotalHE = horasDecimais * ((salario / 220) * (1 + (perc / 100)));
 
         setRubricas([...rubricas, { id: Date.now(), tipo: 'provento', codigo: `HE${perc}`, descricao: `Hora Extra ${perc}% (${tempoHEFixa})`, valor: valorTotalHE }]);
+        setModoAdicao('inativo'); setTempoHEFixa('');
+    }
+    else if (rubricaFixaSelecionada.startsWith('cred_')) {
+        if (!tempoHEFixa || tempoHEFixa.length !== 5) return alert("Preencha as horas no formato HH:MM corretamente!");
+        const [h, m] = tempoHEFixa.split(':').map(Number);
+        if (m > 59) return alert("Os minutos não podem ser maiores que 59!");
+
+        const perc = parseInt(rubricaFixaSelecionada.split('_')[1]); 
+        const horasDecimais = h + (m / 60);
+        const valorTotalCredito = horasDecimais * ((salario / 120) * (1 + (perc / 100)));
+
+        setRubricas([...rubricas, { id: Date.now(), tipo: 'provento', codigo: `CRD`, descricao: `Crédito Diversos`, valor: valorTotalCredito }]);
         setModoAdicao('inativo'); setTempoHEFixa('');
     }
   };
@@ -242,16 +254,41 @@ function App() {
     setResultadoRescisao({ saldoSalario, decimoTerceiro, ferias: feriasComTerco, multaFgts, total: saldoSalario + decimoTerceiro + feriasComTerco + multaFgts });
   };
 
-  // --- LÓGICA DE HORA EXTRA (CALCULADORA RÁPIDA) ---
-  const calcularHoraExtra = () => {
+  // --- LÓGICA DA CALCULADORA RÁPIDA ---
+  const calcularRapido = () => {
     const salario = parseFloat(salarioBaseHE);
-    if (!salario || !horasExtras || horasExtras.length !== 5) return alert("Preencha o salário e as horas no formato HH:MM corretamente!");
-    const [h, m] = horasExtras.split(':').map(Number);
-    if (m > 59) return alert("Os minutos não podem ser maiores que 59!");
-    const horasDecimais = h + (m / 60);
-    const valorHoraNormal = salario / 220;
-    const valorHoraExtra = valorHoraNormal * (1 + (parseFloat(percentualHE) / 100));
-    setResultadoHE({ total: horasDecimais * valorHoraExtra });
+    if (!salario) return alert("Preencha o Salário Base corretamente!");
+
+    let valorFinal = 0;
+    let tipoResultado = 'provento';
+    let tituloResultado = 'Total a Receber:';
+
+    if (tipoCalculoRapido === 'falta') {
+        if (!diasCalculadora || diasCalculadora <= 0) return alert("Preencha a quantidade de dias corretamente!");
+        valorFinal = (salario / 30) * parseInt(diasCalculadora);
+        tipoResultado = 'desconto';
+        tituloResultado = 'Total a Descontar:';
+    } else {
+        if (!tempoCalculadora || tempoCalculadora.length !== 5) return alert("Preencha o tempo no formato HH:MM corretamente!");
+        const [h, m] = tempoCalculadora.split(':').map(Number);
+        if (m > 59) return alert("Os minutos não podem ser maiores que 59!");
+        
+        const horasDecimais = h + (m / 60);
+
+        if (tipoCalculoRapido === 'atraso') {
+            valorFinal = horasDecimais * (salario / 220);
+            tipoResultado = 'desconto';
+            tituloResultado = 'Total a Descontar:';
+        } else if (tipoCalculoRapido.startsWith('he_')) {
+            const perc = parseInt(tipoCalculoRapido.split('_')[1]);
+            valorFinal = horasDecimais * ((salario / 220) * (1 + (perc / 100)));
+        } else if (tipoCalculoRapido.startsWith('cred_')) {
+            const perc = parseInt(tipoCalculoRapido.split('_')[1]);
+            valorFinal = horasDecimais * ((salario / 120) * (1 + (perc / 100)));
+        }
+    }
+
+    setResultadoHE({ total: valorFinal, tipo: tipoResultado, titulo: tituloResultado });
   };
 
   return (
@@ -400,7 +437,7 @@ function App() {
                                             <button onClick={() => setModoAdicao('inativo')} className="text-gray-400 hover:text-gray-600 text-sm">✕</button>
                                         </div>
                                         <div className="flex items-end space-x-4">
-                                            <div className="w-48">
+                                            <div className="w-56">
                                                 <label className="block text-xs font-medium text-gray-700 mb-1">Tipo</label>
                                                 <select 
                                                     value={rubricaFixaSelecionada} 
@@ -412,10 +449,13 @@ function App() {
                                                     className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                                                 >
                                                     <option value="falta">Falta (Dias)</option>
-                                                    <option value="atraso">Atraso</option>
+                                                    <option value="atraso">Atraso (HH:MM)</option>
                                                     <option value="he_50">Hora Extra 50%</option>
                                                     <option value="he_60">Hora Extra 60%</option>
                                                     <option value="he_100">Hora Extra 100%</option>
+                                                    <option value="cred_50">Hora Extra 50% ( Cred. Div. )</option>
+                                                    <option value="cred_60">Hora Extra 60% ( Cred. Div. )</option>
+                                                    <option value="cred_100">Hora Extra 100% ( Cred. Div. )</option>
                                                 </select>
                                             </div>
                                             
@@ -426,7 +466,7 @@ function App() {
                                                 </div>
                                             )}
 
-                                            {(rubricaFixaSelecionada.startsWith('he_') || rubricaFixaSelecionada === 'atraso') && (
+                                            {(rubricaFixaSelecionada.startsWith('he_') || rubricaFixaSelecionada.startsWith('cred_') || rubricaFixaSelecionada === 'atraso') && (
                                                 <div className="w-32">
                                                     <label className="block text-xs font-medium text-gray-700 mb-1">Tempo (HH:MM)</label>
                                                     <input type="text" value={tempoHEFixa} onChange={handleTempoHEFixaChange} placeholder="Ex: 01:30" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
@@ -443,15 +483,18 @@ function App() {
                                                         if (rubricaFixaSelecionada === 'falta' && diasFalta > 0) {
                                                             return formatarMoeda((salario / 30) * parseInt(diasFalta));
                                                         }
-                                                        if ((rubricaFixaSelecionada.startsWith('he_') || rubricaFixaSelecionada === 'atraso') && tempoHEFixa.length === 5) {
+                                                        if ((rubricaFixaSelecionada.startsWith('he_') || rubricaFixaSelecionada.startsWith('cred_') || rubricaFixaSelecionada === 'atraso') && tempoHEFixa.length === 5) {
                                                             const [h, m] = tempoHEFixa.split(':').map(Number);
                                                             if (m <= 59) {
                                                                 const horasDecimais = h + (m / 60);
                                                                 if (rubricaFixaSelecionada === 'atraso') {
                                                                     return formatarMoeda(horasDecimais * (salario / 220));
-                                                                } else {
+                                                                } else if (rubricaFixaSelecionada.startsWith('he_')) {
                                                                     const perc = parseInt(rubricaFixaSelecionada.split('_')[1]);
                                                                     return formatarMoeda(horasDecimais * ((salario / 220) * (1 + (perc / 100))));
+                                                                } else if (rubricaFixaSelecionada.startsWith('cred_')) {
+                                                                    const perc = parseInt(rubricaFixaSelecionada.split('_')[1]);
+                                                                    return formatarMoeda(horasDecimais * ((salario / 120) * (1 + (perc / 100))));
                                                                 }
                                                             }
                                                         }
@@ -608,11 +651,11 @@ function App() {
             )}
 
             {/* ======================================================== */}
-            {/* ABA 3: CALCULADORA RÁPIDA (HORA EXTRA)                   */}
+            {/* ABA 3: CALCULADORA RÁPIDA                                */}
             {/* ======================================================== */}
             {abaAtiva === 'calculadora' && (
                 <div className="max-w-2xl mx-auto w-full animate-in slide-in-from-right duration-500">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Cálculo de Hora Extra</h2>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Calculadora Rápida</h2>
                     
                     <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -621,30 +664,53 @@ function App() {
                                 <input type="number" placeholder="Ex: 2000" value={salarioBaseHE} onChange={(e) => setSalarioBaseHE(e.target.value)} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none" />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Tempo (HH:MM)</label>
-                                <input type="text" placeholder="Ex: 05:45" value={horasExtras} onChange={handleHorasChange} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Cálculo</label>
+                                <select 
+                                    value={tipoCalculoRapido} 
+                                    onChange={(e) => { 
+                                        setTipoCalculoRapido(e.target.value); 
+                                        setResultadoHE(null); 
+                                        setTempoCalculadora(''); 
+                                        setDiasCalculadora(''); 
+                                    }} 
+                                    className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none"
+                                >
+                                    <option value="he_50">Hora Extra 50%</option>
+                                    <option value="he_60">Hora Extra 60%</option>
+                                    <option value="he_100">Hora Extra 100%</option>
+                                    <option value="cred_50">Hora Extra 50% ( Cred. Div. )</option>
+                                    <option value="cred_60">Hora Extra 60% ( Cred. Div. )</option>
+                                    <option value="cred_100">Hora Extra 100% ( Cred. Div. )</option>
+                                    <option value="atraso">Atraso</option>
+                                    <option value="falta">Falta</option>
+                                </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Adicional (%)</label>
-                                <select value={percentualHE} onChange={(e) => setPercentualHE(e.target.value)} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none">
-                                    <option value="50">50%</option>
-                                    <option value="60">60%</option>
-                                    <option value="100">100%</option>
-                                </select>
+                                {tipoCalculoRapido === 'falta' ? (
+                                    <>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Qtd. de Dias</label>
+                                        <input type="number" placeholder="Ex: 2" value={diasCalculadora} onChange={(e) => setDiasCalculadora(e.target.value)} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none text-center" />
+                                    </>
+                                ) : (
+                                    <>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Tempo (HH:MM)</label>
+                                        <input type="text" placeholder="Ex: 05:45" value={tempoCalculadora} onChange={(e) => setTempoCalculadora(aplicarMascaraHora(e.target.value))} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
+                                    </>
+                                )}
                             </div>
                         </div>
                         
                         <div className="pt-4">
-                            <button onClick={calcularHoraExtra} className="w-full bg-slate-800 text-white font-bold py-4 rounded-xl hover:bg-slate-700 transition-all flex justify-center items-center space-x-2 text-lg">
-                                <span>Calcular Hora Extra</span>
+                            <button onClick={calcularRapido} className="w-full bg-slate-800 text-white font-bold py-4 rounded-xl hover:bg-slate-700 transition-all flex justify-center items-center space-x-2 text-lg">
+                                <span>Calcular</span>
                             </button>
                         </div>
 
                         {resultadoHE && (
-                            <div className="mt-8 p-6 bg-blue-50 rounded-xl border border-blue-200">
+                            <div className={`mt-8 p-6 rounded-xl border ${resultadoHE.tipo === 'desconto' ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'}`}>
                                 <div className="flex justify-between items-center font-bold text-2xl text-slate-900">
-                                    <span>Total a Receber:</span>
-                                    <span className="text-blue-600">{formatarMoeda(resultadoHE.total)}</span>
+                                    <span>{resultadoHE.titulo}</span>
+                                    <span className={resultadoHE.tipo === 'desconto' ? 'text-red-600' : 'text-blue-600'}>{formatarMoeda(resultadoHE.total)}</span>
                                 </div>
                             </div>
                         )}
