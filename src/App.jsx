@@ -675,14 +675,14 @@ function App() {
                                     }} 
                                     className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none"
                                 >
+                                    <option value="atraso">Atraso</option>
+                                    <option value="falta">Falta</option>
                                     <option value="he_50">Hora Extra 50%</option>
                                     <option value="he_60">Hora Extra 60%</option>
                                     <option value="he_100">Hora Extra 100%</option>
                                     <option value="cred_50">Hora Extra 50% ( Cred. Div. )</option>
                                     <option value="cred_60">Hora Extra 60% ( Cred. Div. )</option>
                                     <option value="cred_100">Hora Extra 100% ( Cred. Div. )</option>
-                                    <option value="atraso">Atraso</option>
-                                    <option value="falta">Falta</option>
                                 </select>
                             </div>
                             <div>
