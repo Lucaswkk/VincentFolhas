@@ -34,7 +34,7 @@ function App() {
   // Rubricas Fixas
   const [rubricaFixaSelecionada, setRubricaFixaSelecionada] = useState('falta');
   const [diasFalta, setDiasFalta] = useState(''); 
-  const [tempoHEFixa, setTempoHEFixa] = useState(''); // NOVO: Tempo HH:MM para a rubrica fixa
+  const [tempoHEFixa, setTempoHEFixa] = useState(''); 
 
   // ==========================================
   // ESTADOS DA ABA: RESCISÃO
@@ -98,12 +98,23 @@ function App() {
         setRubricas([...rubricas, { id: Date.now(), tipo: 'desconto', codigo: 'FLT', descricao: `Falta (${diasFalta} dias)`, valor: valorFalta }]);
         setModoAdicao('inativo'); setDiasFalta('');
     } 
+    else if (rubricaFixaSelecionada === 'atraso') {
+        if (!tempoHEFixa || tempoHEFixa.length !== 5) return alert("Preencha as horas no formato HH:MM corretamente!");
+        const [h, m] = tempoHEFixa.split(':').map(Number);
+        if (m > 59) return alert("Os minutos não podem ser maiores que 59!");
+
+        const horasDecimais = h + (m / 60);
+        const valorAtraso = horasDecimais * (salario / 220);
+
+        setRubricas([...rubricas, { id: Date.now(), tipo: 'desconto', codigo: 'ATR', descricao: `Atraso (${tempoHEFixa})`, valor: valorAtraso }]);
+        setModoAdicao('inativo'); setTempoHEFixa('');
+    }
     else if (rubricaFixaSelecionada.startsWith('he_')) {
         if (!tempoHEFixa || tempoHEFixa.length !== 5) return alert("Preencha as horas no formato HH:MM corretamente!");
         const [h, m] = tempoHEFixa.split(':').map(Number);
         if (m > 59) return alert("Os minutos não podem ser maiores que 59!");
 
-        const perc = parseInt(rubricaFixaSelecionada.split('_')[1]); // Pega 50, 60 ou 100
+        const perc = parseInt(rubricaFixaSelecionada.split('_')[1]); 
         const horasDecimais = h + (m / 60);
         const valorTotalHE = horasDecimais * ((salario / 220) * (1 + (perc / 100)));
 
@@ -401,6 +412,7 @@ function App() {
                                                     className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                                                 >
                                                     <option value="falta">Falta (Dias)</option>
+                                                    <option value="atraso">Atraso</option>
                                                     <option value="he_50">Hora Extra 50%</option>
                                                     <option value="he_60">Hora Extra 60%</option>
                                                     <option value="he_100">Hora Extra 100%</option>
@@ -414,30 +426,33 @@ function App() {
                                                 </div>
                                             )}
 
-                                            {rubricaFixaSelecionada.startsWith('he_') && (
+                                            {(rubricaFixaSelecionada.startsWith('he_') || rubricaFixaSelecionada === 'atraso') && (
                                                 <div className="w-32">
                                                     <label className="block text-xs font-medium text-gray-700 mb-1">Tempo (HH:MM)</label>
-                                                    <input type="text" value={tempoHEFixa} onChange={handleTempoHEFixaChange} placeholder="Ex: 05:30" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
+                                                    <input type="text" value={tempoHEFixa} onChange={handleTempoHEFixaChange} placeholder="Ex: 01:30" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
                                                 </div>
                                             )}
 
                                             <div className="flex-1 flex flex-col justify-end pb-2">
                                                 <span className="text-sm text-gray-500">
-                                                    {rubricaFixaSelecionada === 'falta' ? 'Valor Descontado:' : 'Valor do Provento:'}
+                                                    {rubricaFixaSelecionada === 'falta' || rubricaFixaSelecionada === 'atraso' ? 'Valor Descontado:' : 'Valor do Provento:'}
                                                 </span>
-                                                <span className={`text-lg font-bold ${rubricaFixaSelecionada === 'falta' ? 'text-red-600' : 'text-blue-600'}`}>
+                                                <span className={`text-lg font-bold ${rubricaFixaSelecionada === 'falta' || rubricaFixaSelecionada === 'atraso' ? 'text-red-600' : 'text-blue-600'}`}>
                                                     {(() => {
                                                         const salario = parseFloat(salarioFuncionario) || 0;
                                                         if (rubricaFixaSelecionada === 'falta' && diasFalta > 0) {
                                                             return formatarMoeda((salario / 30) * parseInt(diasFalta));
                                                         }
-                                                        if (rubricaFixaSelecionada.startsWith('he_') && tempoHEFixa.length === 5) {
+                                                        if ((rubricaFixaSelecionada.startsWith('he_') || rubricaFixaSelecionada === 'atraso') && tempoHEFixa.length === 5) {
                                                             const [h, m] = tempoHEFixa.split(':').map(Number);
                                                             if (m <= 59) {
-                                                                const perc = parseInt(rubricaFixaSelecionada.split('_')[1]);
                                                                 const horasDecimais = h + (m / 60);
-                                                                const valorHE = horasDecimais * ((salario / 220) * (1 + (perc / 100)));
-                                                                return formatarMoeda(valorHE);
+                                                                if (rubricaFixaSelecionada === 'atraso') {
+                                                                    return formatarMoeda(horasDecimais * (salario / 220));
+                                                                } else {
+                                                                    const perc = parseInt(rubricaFixaSelecionada.split('_')[1]);
+                                                                    return formatarMoeda(horasDecimais * ((salario / 220) * (1 + (perc / 100))));
+                                                                }
                                                             }
                                                         }
                                                         return 'R$ 0,00';
