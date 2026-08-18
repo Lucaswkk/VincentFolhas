@@ -227,31 +227,63 @@ function App() {
   };
 
   // --- LÓGICA DE RESCISÃO ---
-  const calcularMesesValidos = (d1, d2) => {
-    let count = 0; let dataInicio = new Date(d1); let dataFim = new Date(d2); let d = new Date(dataInicio);
-    while (d <= dataFim) {
-      let mes = d.getMonth(); let ano = d.getFullYear();
-      let startDay = (d.getMonth() === dataInicio.getMonth() && d.getFullYear() === dataInicio.getFullYear()) ? dataInicio.getDate() : 1;
-      let endDay = (d.getMonth() === dataFim.getMonth() && d.getFullYear() === dataFim.getFullYear()) ? dataFim.getDate() : new Date(ano, mes + 1, 0).getDate();
-      if ((endDay - startDay + 1) >= 15) count++;
-      d.setMonth(d.getMonth() + 1); d.setDate(1);
+  const calcularAvosUnificados = (d1, d2) => {
+    const dataInicio = new Date(`${d1}T12:00:00`); 
+    const dataFim = new Date(`${d2}T12:00:00`); 
+    
+    let avos = 0;
+    let dAtual = new Date(dataInicio);
+    
+    while (true) {
+      let proximoMes = new Date(dAtual);
+      proximoMes.setMonth(proximoMes.getMonth() + 1);
+      
+      if (proximoMes > dataFim) {
+        const diffTime = dataFim - dAtual;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; 
+        if (diffDays >= 15) {
+          avos++;
+        }
+        break;
+      } else {
+        avos++;
+        dAtual = proximoMes;
+      }
     }
-    return count;
+    return avos;
   };
 
   const calcularRescisao = () => {
     const salario = parseFloat(salarioBase);
     if (!salario || !admissao || !demissao) return alert("Preencha todos os campos corretamente!");
-    const d1 = new Date(admissao); const d2 = new Date(demissao);
-    const mesesValidos = calcularMesesValidos(d1, d2);
-    const saldoSalario = (salario / 30) * d2.getDate();
-    const decimoTerceiro = (salario / 12) * mesesValidos;
-    const feriasBase = (salario / 12) * mesesValidos;
-    const feriasComTerco = feriasBase + (feriasBase / 3);
-    let multaFgts = 0;
-    if (tipoRescisao === 'sem_justa_causa') multaFgts = (salario * 0.40);
-    else if (tipoRescisao === 'acordo') multaFgts = (salario * 0.20);
-    setResultadoRescisao({ saldoSalario, decimoTerceiro, ferias: feriasComTerco, multaFgts, total: saldoSalario + decimoTerceiro + feriasComTerco + multaFgts });
+    
+    const [ano, mes, dia] = demissao.split('-');
+    const diasTrabalhados = parseInt(dia, 10);
+    
+    const avosValidos = calcularAvosUnificados(admissao, demissao);
+    
+    const saldoSalario = (salario / 30) * diasTrabalhados;
+    let decimoTerceiro = (salario / 12) * avosValidos;
+    let feriasBase = (salario / 12) * avosValidos;
+    let tercoFerias = feriasBase / 3;
+
+    // Regra da Justa Causa: Zera o 13º e as Férias proporcionais
+    if (tipoRescisao === 'justa_causa') {
+        decimoTerceiro = 0;
+        feriasBase = 0;
+        tercoFerias = 0;
+    }
+    
+    const totalLiquido = saldoSalario + decimoTerceiro + feriasBase + tercoFerias;
+
+    setResultadoRescisao({ 
+      saldoSalario, 
+      decimoTerceiro, 
+      ferias: feriasBase, 
+      tercoFerias, 
+      total: totalLiquido,
+      avos: avosValidos 
+    });
   };
 
   // --- LÓGICA DA CALCULADORA RÁPIDA ---
@@ -634,13 +666,15 @@ function App() {
 
                         {resultadoRescisao && (
                             <div className="mt-8 p-6 bg-slate-50 rounded-xl border border-slate-200 text-sm space-y-4">
-                                <h4 className="font-bold text-lg text-slate-800 mb-4 border-b border-gray-200 pb-3">Resumo do Cálculo</h4>
+                                <h4 className="font-bold text-lg text-slate-800 mb-4 border-b border-gray-200 pb-3">
+                                    Resumo do Cálculo 
+                                    <span className="text-sm font-normal text-gray-500 ml-2">({resultadoRescisao.avos} avos de direito)</span>
+                                </h4>
                                 <div className="flex justify-between items-center"><span className="text-gray-600">Saldo de Salário:</span><span className="font-medium text-gray-900 text-base">{formatarMoeda(resultadoRescisao.saldoSalario)}</span></div>
                                 <div className="flex justify-between items-center"><span className="text-gray-600">13º Salário Proporcional:</span><span className="font-medium text-gray-900 text-base">{formatarMoeda(resultadoRescisao.decimoTerceiro)}</span></div>
-                                <div className="flex justify-between items-center"><span className="text-gray-600">Férias + 1/3 Proporcional:</span><span className="font-medium text-gray-900 text-base">{formatarMoeda(resultadoRescisao.ferias)}</span></div>
-                                {resultadoRescisao.multaFgts > 0 && (
-                                    <div className="flex justify-between items-center pt-2"><span className="text-red-600 font-medium">Multa FGTS:</span><span className="font-bold text-red-600 text-base">{formatarMoeda(resultadoRescisao.multaFgts)}</span></div>
-                                )}
+                                <div className="flex justify-between items-center"><span className="text-gray-600">Férias Proporcionais:</span><span className="font-medium text-gray-900 text-base">{formatarMoeda(resultadoRescisao.ferias)}</span></div>
+                                <div className="flex justify-between items-center"><span className="text-gray-600">1/3 de Férias:</span><span className="font-medium text-gray-900 text-base">{formatarMoeda(resultadoRescisao.tercoFerias)}</span></div>
+                                
                                 <div className="flex justify-between items-center font-bold text-2xl mt-6 border-t border-gray-200 pt-6 text-slate-900">
                                     <span>Total Líquido:</span><span className="text-blue-600">{formatarMoeda(resultadoRescisao.total)}</span>
                                 </div>
@@ -675,14 +709,14 @@ function App() {
                                     }} 
                                     className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none"
                                 >
-                                    <option value="atraso">Atraso</option>
-                                    <option value="falta">Falta</option>
                                     <option value="he_50">Hora Extra 50%</option>
                                     <option value="he_60">Hora Extra 60%</option>
                                     <option value="he_100">Hora Extra 100%</option>
                                     <option value="cred_50">Hora Extra 50% ( Cred. Div. )</option>
                                     <option value="cred_60">Hora Extra 60% ( Cred. Div. )</option>
                                     <option value="cred_100">Hora Extra 100% ( Cred. Div. )</option>
+                                    <option value="atraso">Atraso</option>
+                                    <option value="falta">Falta</option>
                                 </select>
                             </div>
                             <div>
