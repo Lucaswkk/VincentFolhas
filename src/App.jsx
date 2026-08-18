@@ -12,16 +12,25 @@ function App() {
   const competenciaAutomatica = `${mesString.charAt(0).toUpperCase() + mesString.slice(1)}/${dataAtual.getFullYear()}`;
 
   // ==========================================
-  // ESTADOS DA ABA: GERAR FOLHA
+  // ESTADOS GLOBAIS (EMPRESA / FUNCIONÁRIO)
   // ==========================================
   const [cnpj, setCnpj] = useState('');
   const [razaoSocial, setRazaoSocial] = useState('');
   const [cpf, setCpf] = useState('');
   const [funcionario, setFuncionario] = useState('');
   const [cargo, setCargo] = useState('');
+
+  // ==========================================
+  // ESTADOS DA ABA: GERAR FOLHA
+  // ==========================================
   const [dataEntrada, setDataEntrada] = useState(''); 
   const [dataCompetencia, setDataCompetencia] = useState('');
   const [salarioFuncionario, setSalarioFuncionario] = useState(''); 
+  
+  // Controle de Dias Proporcionais
+  const [usarDiasProporcionais, setUsarDiasProporcionais] = useState(false);
+  const [dataInicioProp, setDataInicioProp] = useState('');
+  const [dataFimProp, setDataFimProp] = useState('');
 
   // Rubricas
   const [rubricas, setRubricas] = useState([]);
@@ -43,6 +52,7 @@ function App() {
   const [admissao, setAdmissao] = useState('');
   const [demissao, setDemissao] = useState('');
   const [tipoRescisao, setTipoRescisao] = useState('sem_justa_causa');
+  const [avisoPrevioIndenizado, setAvisoPrevioIndenizado] = useState(false);
   const [resultadoRescisao, setResultadoRescisao] = useState(null);
 
   // ==========================================
@@ -79,7 +89,26 @@ function App() {
   const formatarNumeroBr = (valor) => valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const formatarMoeda = (valor) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
 
-  // --- LÓGICA DE RUBRICAS AVULSAS ---
+  // --- LÓGICA DE DIAS PROPORCIONAIS (FOLHA) ---
+  const salarioVal = parseFloat(salarioFuncionario) || 0; 
+  let diasPropCalc = 0;
+  let salarioEfetivoFolha = salarioVal;
+  let descricaoSalarioBase = 'Salário Base';
+
+  if (usarDiasProporcionais && dataInicioProp && dataFimProp && salarioVal > 0) {
+      const d1 = new Date(`${dataInicioProp}T12:00:00`);
+      const d2 = new Date(`${dataFimProp}T12:00:00`);
+      const diffTime = d2 - d1;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      
+      if (diffDays > 0) {
+          diasPropCalc = diffDays;
+          salarioEfetivoFolha = (salarioVal / 30) * diffDays;
+          descricaoSalarioBase = `Dias Proporcionais (${diffDays} dias)`;
+      }
+  }
+
+  // --- LÓGICA DE RUBRICAS AVULSAS E FIXAS ---
   const handleSalvarRubrica = () => {
     if (!novoCodigo || !novaDescricao || !novoValor) return;
     const valorNumerico = parseFloat(novoValor.replace(/\./g, '').replace(',', '.')) || 0;
@@ -88,13 +117,10 @@ function App() {
     setModoAdicao('inativo'); setNovoCodigo(''); setNovaDescricao(''); setNovoValor('');
   };
 
-  // --- LÓGICA DE RUBRICAS FIXAS ---
   const handleSalvarRubricaFixa = () => {
-    const salario = parseFloat(salarioFuncionario) || 0;
-
     if (rubricaFixaSelecionada === 'falta') {
         if (!diasFalta || diasFalta <= 0) return;
-        const valorFalta = (salario / 30) * parseInt(diasFalta);
+        const valorFalta = (salarioVal / 30) * parseInt(diasFalta);
         setRubricas([...rubricas, { id: Date.now(), tipo: 'desconto', codigo: 'FLT', descricao: `Falta (${diasFalta} dias)`, valor: valorFalta }]);
         setModoAdicao('inativo'); setDiasFalta('');
     } 
@@ -104,7 +130,7 @@ function App() {
         if (m > 59) return alert("Os minutos não podem ser maiores que 59!");
 
         const horasDecimais = h + (m / 60);
-        const valorAtraso = horasDecimais * (salario / 220);
+        const valorAtraso = horasDecimais * (salarioVal / 220);
 
         setRubricas([...rubricas, { id: Date.now(), tipo: 'desconto', codigo: 'ATR', descricao: `Atraso (${tempoHEFixa})`, valor: valorAtraso }]);
         setModoAdicao('inativo'); setTempoHEFixa('');
@@ -116,7 +142,7 @@ function App() {
 
         const perc = parseInt(rubricaFixaSelecionada.split('_')[1]); 
         const horasDecimais = h + (m / 60);
-        const valorTotalHE = horasDecimais * ((salario / 220) * (1 + (perc / 100)));
+        const valorTotalHE = horasDecimais * ((salarioVal / 220) * (1 + (perc / 100)));
 
         setRubricas([...rubricas, { id: Date.now(), tipo: 'provento', codigo: `HE${perc}`, descricao: `Hora Extra ${perc}% (${tempoHEFixa})`, valor: valorTotalHE }]);
         setModoAdicao('inativo'); setTempoHEFixa('');
@@ -128,7 +154,7 @@ function App() {
 
         const perc = parseInt(rubricaFixaSelecionada.split('_')[1]); 
         const horasDecimais = h + (m / 60);
-        const valorTotalCredito = horasDecimais * ((salario / 120) * (1 + (perc / 100)));
+        const valorTotalCredito = horasDecimais * ((salarioVal / 120) * (1 + (perc / 100)));
 
         setRubricas([...rubricas, { id: Date.now(), tipo: 'provento', codigo: `CRD`, descricao: `Crédito Diversos`, valor: valorTotalCredito }]);
         setModoAdicao('inativo'); setTempoHEFixa('');
@@ -141,8 +167,7 @@ function App() {
   const proventos = rubricas.filter(r => r.tipo === 'provento');
   const descontos = rubricas.filter(r => r.tipo === 'desconto');
   
-  const salarioVal = parseFloat(salarioFuncionario) || 0; 
-  const totalProventos = proventos.reduce((acc, curr) => acc + curr.valor, 0) + salarioVal; 
+  const totalProventos = proventos.reduce((acc, curr) => acc + curr.valor, 0) + salarioEfetivoFolha; 
   const totalDescontos = descontos.reduce((acc, curr) => acc + curr.valor, 0);
   const totalLiquido = totalProventos - totalDescontos;
 
@@ -189,7 +214,7 @@ function App() {
     doc.setFont('helvetica', 'normal'); doc.text(formatarMoeda(salarioVal), 42, 52);
     
     const tableData = [];
-    if (salarioVal > 0) tableData.push(['001', 'Salário Base', formatarNumeroBr(salarioVal), '']);
+    if (salarioEfetivoFolha > 0) tableData.push(['001', descricaoSalarioBase, formatarNumeroBr(salarioEfetivoFolha), '']);
     proventos.forEach(p => tableData.push([p.codigo, p.descricao, formatarNumeroBr(p.valor), '']));
     descontos.forEach(d => tableData.push([d.codigo, d.descricao, '', formatarNumeroBr(d.valor)]));
     if (tableData.length === 0) tableData.push(['-', 'Nenhuma rubrica adicionada', '-', '-']);
@@ -266,6 +291,12 @@ function App() {
     let decimoTerceiro = (salario / 12) * avosValidos;
     let feriasBase = (salario / 12) * avosValidos;
     let tercoFerias = feriasBase / 3;
+    let valorAviso = 0;
+
+    // Se Aviso Prévio Indenizado for marcado, pega o salário integral
+    if (avisoPrevioIndenizado) {
+        valorAviso = salario;
+    }
 
     // Regra da Justa Causa: Zera o 13º e as Férias proporcionais
     if (tipoRescisao === 'justa_causa') {
@@ -274,16 +305,81 @@ function App() {
         tercoFerias = 0;
     }
     
-    const totalLiquido = saldoSalario + decimoTerceiro + feriasBase + tercoFerias;
+    const totalLiquido = saldoSalario + decimoTerceiro + feriasBase + tercoFerias + valorAviso;
 
     setResultadoRescisao({ 
       saldoSalario, 
       decimoTerceiro, 
       ferias: feriasBase, 
       tercoFerias, 
+      avisoPrevio: valorAviso,
       total: totalLiquido,
       avos: avosValidos 
     });
+  };
+
+  // --- GERAÇÃO DO PDF (RESCISÃO) ---
+  const gerarPDFRescisao = () => {
+    if (!resultadoRescisao) return alert("Calcule a rescisão primeiro!");
+
+    const doc = new jsPDF();
+    doc.setFontSize(14); doc.setFont('helvetica', 'bold');
+    doc.text('RESUMO DE VERBAS RESCISÓRIAS', 105, 15, { align: 'center' });
+    
+    doc.setLineWidth(0.3); doc.rect(14, 20, 182, 15); doc.setFontSize(9); 
+    
+    doc.setFont('helvetica', 'bold'); doc.text('Empregador:', 16, 25);
+    doc.setFont('helvetica', 'normal'); doc.text(`${razaoSocial || 'Não informado'}`, 40, 25);
+    
+    doc.setFont('helvetica', 'bold'); doc.text('CNPJ:', 16, 31);
+    doc.setFont('helvetica', 'normal'); doc.text(`${cnpj || 'Não informado'}`, 27, 31);
+    
+    doc.rect(14, 35, 182, 21);
+    
+    doc.setFont('helvetica', 'bold'); doc.text('Funcionário:', 16, 40);
+    doc.setFont('helvetica', 'normal'); doc.text(`${funcionario || 'Não informado'}`, 38, 40);
+    
+    doc.setFont('helvetica', 'bold'); doc.text('CPF:', 145, 40); 
+    doc.setFont('helvetica', 'normal'); doc.text(`${cpf || 'Não informado'}`, 155, 40);
+    
+    doc.setFont('helvetica', 'bold'); doc.text('Cargo/Função:', 16, 46); 
+    doc.setFont('helvetica', 'normal'); doc.text(`${cargo || 'Não informado'}`, 42, 46);
+    
+    let admFormatada = admissao ? admissao.split('-').reverse().join('/') : 'Não informada';
+    let demFormatada = demissao ? demissao.split('-').reverse().join('/') : 'Não informada';
+
+    doc.setFont('helvetica', 'bold'); doc.text('Admissão:', 145, 46);
+    doc.setFont('helvetica', 'normal'); doc.text(admFormatada, 163, 46);
+
+    doc.setFont('helvetica', 'bold'); doc.text('Demissão:', 145, 52);
+    doc.setFont('helvetica', 'normal'); doc.text(demFormatada, 163, 52);
+    
+    const tableData = [];
+    tableData.push(['Saldo de Salário', formatarNumeroBr(resultadoRescisao.saldoSalario)]);
+    if (resultadoRescisao.decimoTerceiro > 0) tableData.push(['13º Salário Proporcional', formatarNumeroBr(resultadoRescisao.decimoTerceiro)]);
+    if (resultadoRescisao.ferias > 0) tableData.push(['Férias Proporcionais', formatarNumeroBr(resultadoRescisao.ferias)]);
+    if (resultadoRescisao.tercoFerias > 0) tableData.push(['1/3 de Férias (Terço Constitucional)', formatarNumeroBr(resultadoRescisao.tercoFerias)]);
+    if (resultadoRescisao.avisoPrevio > 0) tableData.push(['Aviso Prévio Indenizado', formatarNumeroBr(resultadoRescisao.avisoPrevio)]);
+
+    autoTable(doc, {
+      startY: 60,
+      head: [['Descrição das Verbas', 'Valor (R$)']], 
+      body: tableData, 
+      theme: 'grid',
+      headStyles: { fillColor: [230, 230, 230], textColor: 20, fontStyle: 'bold', halign: 'center' },
+      columnStyles: { 0: { halign: 'left' }, 1: { halign: 'right', cellWidth: 50 } },
+      styles: { fontSize: 10 }, 
+      margin: { left: 14, right: 14 }
+    });
+
+    const finalY = doc.lastAutoTable.finalY || 70;
+    
+    doc.rect(14, finalY + 5, 182, 12);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold'); doc.text('Total Líquido Rescisório:', 16, finalY + 13);
+    doc.text(formatarMoeda(resultadoRescisao.total), 193, finalY + 13, { align: 'right' });
+    
+    doc.save(`Rescisao_${funcionario ? funcionario.replace(/\s+/g, '_') : 'Funcionario'}.pdf`);
   };
 
   // --- LÓGICA DA CALCULADORA RÁPIDA ---
@@ -402,9 +498,29 @@ function App() {
                                         <label className="block text-sm font-medium text-gray-700 mb-2">Competência</label>
                                         <input type="month" value={dataCompetencia} onChange={(e) => setDataCompetencia(e.target.value)} className="w-full border border-gray-300 rounded-md px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-600" />
                                     </div>
+                                    
                                     <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">Salário Base (R$)<span className="text-red-500 ml-1">*</span></label>
+                                        <div className="flex justify-between items-center mb-2">
+                                            <label className="block text-sm font-medium text-gray-700">Salário Base (R$)<span className="text-red-500 ml-1">*</span></label>
+                                            <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 cursor-pointer">
+                                                <input type="checkbox" checked={usarDiasProporcionais} onChange={(e) => setUsarDiasProporcionais(e.target.checked)} className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-4 w-4" />
+                                                <span>Dias Proporcionais</span>
+                                            </label>
+                                        </div>
                                         <input type="number" value={salarioFuncionario} onChange={(e) => setSalarioFuncionario(e.target.value)} placeholder="Ex: 3200" className="w-full border border-gray-300 rounded-md px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold text-gray-900 bg-gray-50" />
+                                        
+                                        {usarDiasProporcionais && (
+                                            <div className="flex space-x-3 mt-3 p-3 bg-blue-50/50 rounded-lg border border-blue-100">
+                                                <div className="flex-1">
+                                                    <label className="block text-xs font-medium text-gray-600 mb-1">Início</label>
+                                                    <input type="date" value={dataInicioProp} onChange={(e) => setDataInicioProp(e.target.value)} className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-blue-500" />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <label className="block text-xs font-medium text-gray-600 mb-1">Fim</label>
+                                                    <input type="date" value={dataFimProp} onChange={(e) => setDataFimProp(e.target.value)} className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-blue-500" />
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -451,7 +567,7 @@ function App() {
                                             </div>
                                             <div className="flex-1">
                                                 <label className="block text-xs font-medium text-gray-700 mb-1">Descrição</label>
-                                                <input type="text" value={novaDescricao} onChange={(e) => setNovaDescricao(e.target.value)} placeholder="Salário Base" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" />
+                                                <input type="text" value={novaDescricao} onChange={(e) => setNovaDescricao(e.target.value)} placeholder="Ex: Bonificação" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" />
                                             </div>
                                             <div className="w-32">
                                                 <label className="block text-xs font-medium text-gray-700 mb-1">Valor</label>
@@ -540,7 +656,7 @@ function App() {
                                 )}
                             </div>
 
-                            {(proventos.length > 0 || salarioVal > 0) && (
+                            {(proventos.length > 0 || salarioEfetivoFolha > 0) && (
                                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                                     <div className="p-4 border-b border-gray-100"><h3 className="text-blue-500 text-lg font-medium">Proventos</h3></div>
                                     <table className="w-full text-left border-collapse">
@@ -553,11 +669,11 @@ function App() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {salarioVal > 0 && (
+                                            {salarioEfetivoFolha > 0 && (
                                                 <tr className="border-b border-gray-100 bg-blue-50/30">
                                                     <td className="py-3 px-4 text-sm text-gray-600">001</td>
-                                                    <td className="py-3 px-4 text-sm text-gray-800 font-medium">Salário Base</td>
-                                                    <td className="py-3 px-4 text-right text-sm">{formatarNumeroBr(salarioVal)}</td>
+                                                    <td className="py-3 px-4 text-sm text-gray-800 font-medium">{descricaoSalarioBase}</td>
+                                                    <td className="py-3 px-4 text-right text-sm">{formatarNumeroBr(salarioEfetivoFolha)}</td>
                                                     <td className="py-3 px-4 text-center text-gray-400">-</td>
                                                 </tr>
                                             )}
@@ -633,10 +749,44 @@ function App() {
                 <div className="max-w-3xl mx-auto w-full animate-in slide-in-from-right duration-500">
                     <h2 className="text-2xl font-bold text-gray-900 mb-6">Cálculo de Rescisão</h2>
                     
+                    {/* BLOCO: DADOS DA EMPRESA E FUNCIONÁRIO (Sincronizado) */}
+                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm mb-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Dados da Empresa e Funcionário</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div className="md:col-span-1">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">CNPJ</label>
+                                <input type="text" maxLength="18" value={cnpj} onChange={handleCnpjChange} placeholder="00.000.000/0000-00" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                            <div className="md:col-span-3">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Razão Social / Empresa</label>
+                                <input type="text" maxLength="150" value={razaoSocial} onChange={(e) => setRazaoSocial(e.target.value)} placeholder="Nome completo da empresa..." className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                            <div className="md:col-span-1">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">CPF</label>
+                                <input type="text" maxLength="14" value={cpf} onChange={handleCpfChange} placeholder="000.000.000-00" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Funcionário</label>
+                                <input type="text" maxLength="100" value={funcionario} onChange={(e) => setFuncionario(e.target.value)} placeholder="Nome completo..." className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                            <div className="md:col-span-1">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Cargo / Função</label>
+                                <input type="text" maxLength="80" value={cargo} onChange={(e) => setCargo(e.target.value)} placeholder="Ex: Analista" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* BLOCO: DADOS DA RESCISÃO */}
                     <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Salário Base (R$)</label>
+                                <div className="flex justify-between items-center mb-1">
+                                    <label className="block text-sm font-medium text-gray-700">Salário Base (R$)</label>
+                                    <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 cursor-pointer">
+                                        <input type="checkbox" checked={avisoPrevioIndenizado} onChange={(e) => setAvisoPrevioIndenizado(e.target.checked)} className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-4 w-4" />
+                                        <span>Aviso Prévio Indenizado</span>
+                                    </label>
+                                </div>
                                 <input type="number" placeholder="Ex: 3200" value={salarioBase} onChange={(e) => setSalarioBase(e.target.value)} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none" />
                             </div>
                             <div>
@@ -675,8 +825,19 @@ function App() {
                                 <div className="flex justify-between items-center"><span className="text-gray-600">Férias Proporcionais:</span><span className="font-medium text-gray-900 text-base">{formatarMoeda(resultadoRescisao.ferias)}</span></div>
                                 <div className="flex justify-between items-center"><span className="text-gray-600">1/3 de Férias:</span><span className="font-medium text-gray-900 text-base">{formatarMoeda(resultadoRescisao.tercoFerias)}</span></div>
                                 
+                                {resultadoRescisao.avisoPrevio > 0 && (
+                                    <div className="flex justify-between items-center pt-2"><span className="text-blue-600 font-medium">Aviso Prévio Indenizado:</span><span className="font-bold text-blue-600 text-base">{formatarMoeda(resultadoRescisao.avisoPrevio)}</span></div>
+                                )}
+                                
                                 <div className="flex justify-between items-center font-bold text-2xl mt-6 border-t border-gray-200 pt-6 text-slate-900">
                                     <span>Total Líquido:</span><span className="text-blue-600">{formatarMoeda(resultadoRescisao.total)}</span>
+                                </div>
+
+                                {/* Botão de Gerar PDF da Rescisão */}
+                                <div className="pt-4">
+                                    <button onClick={gerarPDFRescisao} className="w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg shadow-sm hover:bg-blue-700 transition-colors flex items-center justify-center">
+                                        <span>Gerar PDF da Rescisão</span>
+                                    </button>
                                 </div>
                             </div>
                         )}
