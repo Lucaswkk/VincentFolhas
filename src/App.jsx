@@ -171,48 +171,68 @@ function App() {
   const totalDescontos = descontos.reduce((acc, curr) => acc + curr.valor, 0);
   const totalLiquido = totalProventos - totalDescontos;
 
-  // --- GERAÇÃO DO PDF (GERAR FOLHA) ---
+  // ========================================================
+  // PDF MODERNO: GERAR FOLHA (HOLERITE)
+  // ========================================================
   const gerarPDF = () => {
     if (!salarioFuncionario) return alert("O campo 'Salário Base' é obrigatório para gerar o PDF!");
 
     const doc = new jsPDF();
-    doc.setFontSize(14); doc.setFont('helvetica', 'bold');
-    doc.text('RECIBO DE PAGAMENTO DE SALÁRIO', 105, 15, { align: 'center' });
     
-    doc.setLineWidth(0.3); doc.rect(14, 20, 182, 15); doc.setFontSize(9); 
-    
-    doc.setFont('helvetica', 'bold'); doc.text('Empregador:', 16, 25);
-    doc.setFont('helvetica', 'normal'); doc.text(`${razaoSocial || 'Não informado'}`, 40, 25);
-    
-    doc.setFont('helvetica', 'bold'); doc.text('CNPJ:', 16, 31);
-    doc.setFont('helvetica', 'normal'); doc.text(`${cnpj || 'Não informado'}`, 27, 31);
-    
-    doc.setFont('helvetica', 'bold'); doc.text('Competência:', 145, 28);
-    let compFormatada = 'Não informada';
-    if (dataCompetencia) {
-        const [ano, mes] = dataCompetencia.split('-');
-        compFormatada = `${mes}/${ano}`;
-    }
-    doc.setFont('helvetica', 'normal'); doc.text(compFormatada, 170, 28);
-    
-    doc.rect(14, 35, 182, 21);
-    
-    doc.setFont('helvetica', 'bold'); doc.text('Funcionário:', 16, 40);
-    doc.setFont('helvetica', 'normal'); doc.text(`${funcionario || 'Não informado'}`, 38, 40);
-    
-    doc.setFont('helvetica', 'bold'); doc.text('CPF:', 145, 40); 
-    doc.setFont('helvetica', 'normal'); doc.text(`${cpf || 'Não informado'}`, 155, 40);
-    
-    doc.setFont('helvetica', 'bold'); doc.text('Cargo/Função:', 16, 46); 
-    doc.setFont('helvetica', 'normal'); doc.text(`${cargo || 'Não informado'}`, 42, 46);
-    
-    doc.setFont('helvetica', 'bold'); doc.text('Admissão:', 145, 46);
-    let admFormatada = dataEntrada ? dataEntrada.split('-').reverse().join('/') : 'Não informada';
-    doc.setFont('helvetica', 'normal'); doc.text(admFormatada, 163, 46);
+    // Helper para desenhar os campos organizados
+    const drawField = (label, value, x, y) => {
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139); // slate-500
+      doc.setFont('helvetica', 'normal');
+      doc.text(label, x, y);
+      
+      doc.setFontSize(10);
+      doc.setTextColor(15, 23, 42); // slate-900
+      doc.setFont('helvetica', 'bold');
+      doc.text(value, x, y + 5);
+    };
 
-    doc.setFont('helvetica', 'bold'); doc.text('Salário Base:', 16, 52); 
-    doc.setFont('helvetica', 'normal'); doc.text(formatarMoeda(salarioVal), 42, 52);
+    // 1. Cabeçalho Moderno Neutro (Faixa Azul Escuro)
+    doc.setFillColor(15, 23, 42); // slate-900
+    doc.rect(0, 0, 210, 26, 'F');
     
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('RECIBO DE PAGAMENTO DE SALÁRIO', 105, 16, { align: 'center' });
+
+    let currentY = 34;
+
+    // 2. Box: Dados da Empresa
+    doc.setDrawColor(226, 232, 240); // slate-200
+    doc.setFillColor(248, 250, 252); // slate-50
+    doc.roundedRect(14, currentY, 182, 18, 2, 2, 'FD'); // Box com cantos arredondados
+    drawField('EMPREGADOR / RAZÃO SOCIAL', razaoSocial || 'Não informado', 18, currentY + 6);
+    drawField('CNPJ', cnpj || 'Não informado', 130, currentY + 6);
+    
+    currentY += 22;
+
+    // 3. Box: Dados do Funcionário
+    // REINICIA A COR DE FUNDO PARA NÃO VAZAR O PRETO DO TEXTO ANTERIOR
+    doc.setDrawColor(226, 232, 240); // slate-200
+    doc.setFillColor(248, 250, 252); // slate-50
+    doc.roundedRect(14, currentY, 182, 28, 2, 2, 'FD');
+    
+    drawField('CÓD.', '001', 18, currentY + 6);
+    drawField('NOME DO FUNCIONÁRIO', funcionario || 'Não informado', 35, currentY + 6);
+    drawField('CPF', cpf || 'Não informado', 130, currentY + 6);
+    
+    let compFormatada = dataCompetencia ? dataCompetencia.split('-').reverse().join('/') : 'Não informada';
+    drawField('COMPETÊNCIA', compFormatada, 170, currentY + 6);
+
+    drawField('CARGO / FUNÇÃO', cargo || 'Não informado', 18, currentY + 18);
+    let admFormatada = dataEntrada ? dataEntrada.split('-').reverse().join('/') : 'Não informada';
+    drawField('ADMISSÃO', admFormatada, 90, currentY + 18);
+    drawField('SALÁRIO BASE', formatarMoeda(salarioVal), 130, currentY + 18);
+
+    currentY += 34;
+
+    // 4. Tabela de Verbas (autoTable)
     const tableData = [];
     if (salarioEfetivoFolha > 0) tableData.push(['001', descricaoSalarioBase, formatarNumeroBr(salarioEfetivoFolha), '']);
     proventos.forEach(p => tableData.push([p.codigo, p.descricao, formatarNumeroBr(p.valor), '']));
@@ -220,34 +240,74 @@ function App() {
     if (tableData.length === 0) tableData.push(['-', 'Nenhuma rubrica adicionada', '-', '-']);
 
     autoTable(doc, {
-      startY: 60,
-      head: [['Cód', 'Descrição', 'Vencimentos (R$)', 'Descontos (R$)']], 
-      body: tableData, 
+      startY: currentY,
+      head: [['Cód', 'Descrição', 'Proventos (R$)', 'Descontos (R$)']],
+      body: tableData,
       theme: 'grid',
-      headStyles: { fillColor: [230, 230, 230], textColor: 20, fontStyle: 'bold', halign: 'center' },
-      columnStyles: { 0: { halign: 'center', cellWidth: 20 }, 1: { halign: 'left' }, 2: { halign: 'right', cellWidth: 40 }, 3: { halign: 'right', cellWidth: 40 } },
-      styles: { fontSize: 9 }, 
+      headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold', halign: 'center' }, // blue-600
+      columnStyles: { 
+          0: { halign: 'center', cellWidth: 20 }, 
+          1: { halign: 'left' }, 
+          2: { halign: 'right', cellWidth: 40, textColor: [21, 128, 61] }, // green-700
+          3: { halign: 'right', cellWidth: 40, textColor: [185, 28, 28] }  // red-700
+      },
+      styles: { fontSize: 9, cellPadding: 4, lineColor: [226, 232, 240] },
       margin: { left: 14, right: 14 }
     });
 
-    const finalY = doc.lastAutoTable.finalY || 70;
+    let finalY = doc.lastAutoTable.finalY + 8;
+
+    // 5. Box: Totais e Resumo
+    doc.setDrawColor(226, 232, 240);
+    doc.setFillColor(255, 255, 255); // Branco
+    doc.roundedRect(14, finalY, 182, 30, 2, 2, 'FD');
     
-    doc.rect(14, finalY, 182, 15);
-    doc.setFont('helvetica', 'bold'); doc.text('Total de Vencimentos:', 80, finalY + 6);
-    doc.setFont('helvetica', 'normal'); doc.text(formatarMoeda(totalProventos), 140, finalY + 6, { align: 'right' });
+    // Separador vertical
+    doc.line(140, finalY, 140, finalY + 30);
     
-    doc.setFont('helvetica', 'bold'); doc.text('Total de Descontos:', 145, finalY + 6);
-    doc.setFont('helvetica', 'normal'); doc.text(formatarMoeda(totalDescontos), 193, finalY + 6, { align: 'right' });
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Total de Proventos', 18, finalY + 10);
+    doc.text('Total de Descontos', 18, finalY + 20);
     
-    doc.setFont('helvetica', 'bold'); doc.text('Valor Líquido:', 145, finalY + 12);
-    doc.text(formatarMoeda(totalLiquido), 193, finalY + 12, { align: 'right' });
+    doc.setFontSize(10);
+    doc.setTextColor(21, 128, 61); // verde
+    doc.setFont('helvetica', 'bold');
+    doc.text(formatarMoeda(totalProventos), 135, finalY + 10, { align: 'right' });
     
-    doc.rect(14, finalY + 15, 182, 25);
-    doc.setFontSize(8); doc.setFont('helvetica', 'normal'); 
-    doc.text('DECLARO TER RECEBIDO A IMPORTÂNCIA LÍQUIDA DISCRIMINADA NESTE RECIBO.', 16, finalY + 22);
-    doc.text('DATA: _____/_____/_______', 16, finalY + 34); 
-    doc.text('ASSINATURA: ____________________________________________________', 80, finalY + 34);
+    doc.setTextColor(185, 28, 28); // vermelho
+    doc.text(formatarMoeda(totalDescontos), 135, finalY + 20, { align: 'right' });
+
+    // Destaque Líquido
+    doc.setFillColor(240, 249, 255); // sky-50
+    doc.setDrawColor(240, 249, 255); // evitar borda preta
+    doc.roundedRect(142, finalY + 2, 52, 26, 2, 2, 'F');
     
+    doc.setFontSize(9);
+    doc.setTextColor(3, 105, 161); // sky-700
+    doc.setFont('helvetica', 'bold');
+    doc.text('VALOR LÍQUIDO', 168, finalY + 12, { align: 'center' });
+    
+    doc.setFontSize(14);
+    doc.setTextColor(15, 23, 42); // slate-900
+    doc.text(formatarMoeda(totalLiquido), 168, finalY + 22, { align: 'center' });
+
+    finalY += 45;
+
+    // 6. Rodapé e Assinaturas
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.setFont('helvetica', 'normal');
+    doc.text('DECLARO TER RECEBIDO A IMPORTÂNCIA LÍQUIDA DISCRIMINADA NESTE RECIBO.', 14, finalY);
+    
+    doc.setDrawColor(148, 163, 184); // slate-400
+    doc.line(14, finalY + 20, 70, finalY + 20);
+    doc.text('DATA', 42, finalY + 25, { align: 'center' });
+
+    doc.line(80, finalY + 20, 196, finalY + 20);
+    doc.text('ASSINATURA DO FUNCIONÁRIO', 138, finalY + 25, { align: 'center' });
+
     doc.save(`Holerite_${funcionario ? funcionario.replace(/\s+/g, '_') : 'Funcionario'}.pdf`);
   };
 
@@ -293,12 +353,10 @@ function App() {
     let tercoFerias = feriasBase / 3;
     let valorAviso = 0;
 
-    // Se Aviso Prévio Indenizado for marcado, pega o salário integral
     if (avisoPrevioIndenizado) {
         valorAviso = salario;
     }
 
-    // Regra da Justa Causa: Zera o 13º e as Férias proporcionais
     if (tipoRescisao === 'justa_causa') {
         decimoTerceiro = 0;
         feriasBase = 0;
@@ -318,42 +376,66 @@ function App() {
     });
   };
 
-  // --- GERAÇÃO DO PDF (RESCISÃO) ---
+  // ========================================================
+  // PDF MODERNO: RESCISÃO
+  // ========================================================
   const gerarPDFRescisao = () => {
     if (!resultadoRescisao) return alert("Calcule a rescisão primeiro!");
 
     const doc = new jsPDF();
-    doc.setFontSize(14); doc.setFont('helvetica', 'bold');
-    doc.text('RESUMO DE VERBAS RESCISÓRIAS', 105, 15, { align: 'center' });
     
-    doc.setLineWidth(0.3); doc.rect(14, 20, 182, 15); doc.setFontSize(9); 
+    const drawField = (label, value, x, y) => {
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139); 
+      doc.setFont('helvetica', 'normal');
+      doc.text(label, x, y);
+      
+      doc.setFontSize(10);
+      doc.setTextColor(15, 23, 42); 
+      doc.setFont('helvetica', 'bold');
+      doc.text(value, x, y + 5);
+    };
+
+    // Cabeçalho Escuro Neutro
+    doc.setFillColor(15, 23, 42); 
+    doc.rect(0, 0, 210, 26, 'F');
     
-    doc.setFont('helvetica', 'bold'); doc.text('Empregador:', 16, 25);
-    doc.setFont('helvetica', 'normal'); doc.text(`${razaoSocial || 'Não informado'}`, 40, 25);
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TERMO DE RESCISÃO DO CONTRATO', 105, 16, { align: 'center' });
+
+    let currentY = 34;
+
+    // Box Empresa
+    doc.setDrawColor(226, 232, 240);
+    doc.setFillColor(248, 250, 252); 
+    doc.roundedRect(14, currentY, 182, 18, 2, 2, 'FD'); 
+    drawField('EMPREGADOR / RAZÃO SOCIAL', razaoSocial || 'Não informado', 18, currentY + 6);
+    drawField('CNPJ', cnpj || 'Não informado', 130, currentY + 6);
     
-    doc.setFont('helvetica', 'bold'); doc.text('CNPJ:', 16, 31);
-    doc.setFont('helvetica', 'normal'); doc.text(`${cnpj || 'Não informado'}`, 27, 31);
+    currentY += 22;
+
+    // Box Funcionário
+    // REINICIA A COR PARA NÃO VAZAR
+    doc.setDrawColor(226, 232, 240);
+    doc.setFillColor(248, 250, 252); 
+    doc.roundedRect(14, currentY, 182, 28, 2, 2, 'FD');
     
-    doc.rect(14, 35, 182, 21);
-    
-    doc.setFont('helvetica', 'bold'); doc.text('Funcionário:', 16, 40);
-    doc.setFont('helvetica', 'normal'); doc.text(`${funcionario || 'Não informado'}`, 38, 40);
-    
-    doc.setFont('helvetica', 'bold'); doc.text('CPF:', 145, 40); 
-    doc.setFont('helvetica', 'normal'); doc.text(`${cpf || 'Não informado'}`, 155, 40);
-    
-    doc.setFont('helvetica', 'bold'); doc.text('Cargo/Função:', 16, 46); 
-    doc.setFont('helvetica', 'normal'); doc.text(`${cargo || 'Não informado'}`, 42, 46);
+    drawField('NOME DO FUNCIONÁRIO', funcionario || 'Não informado', 18, currentY + 6);
+    drawField('CPF', cpf || 'Não informado', 100, currentY + 6);
+    drawField('CARGO / FUNÇÃO', cargo || 'Não informado', 145, currentY + 6);
     
     let admFormatada = admissao ? admissao.split('-').reverse().join('/') : 'Não informada';
     let demFormatada = demissao ? demissao.split('-').reverse().join('/') : 'Não informada';
-
-    doc.setFont('helvetica', 'bold'); doc.text('Admissão:', 145, 46);
-    doc.setFont('helvetica', 'normal'); doc.text(admFormatada, 163, 46);
-
-    doc.setFont('helvetica', 'bold'); doc.text('Demissão:', 145, 52);
-    doc.setFont('helvetica', 'normal'); doc.text(demFormatada, 163, 52);
     
+    drawField('ADMISSÃO', admFormatada, 18, currentY + 18);
+    drawField('DEMISSÃO', demFormatada, 60, currentY + 18);
+    drawField('SALÁRIO BASE', formatarMoeda(parseFloat(salarioBase) || 0), 100, currentY + 18);
+
+    currentY += 34;
+    
+    // Tabela Verbas
     const tableData = [];
     tableData.push(['Saldo de Salário', formatarNumeroBr(resultadoRescisao.saldoSalario)]);
     if (resultadoRescisao.decimoTerceiro > 0) tableData.push(['13º Salário Proporcional', formatarNumeroBr(resultadoRescisao.decimoTerceiro)]);
@@ -362,22 +444,47 @@ function App() {
     if (resultadoRescisao.avisoPrevio > 0) tableData.push(['Aviso Prévio Indenizado', formatarNumeroBr(resultadoRescisao.avisoPrevio)]);
 
     autoTable(doc, {
-      startY: 60,
+      startY: currentY,
       head: [['Descrição das Verbas', 'Valor (R$)']], 
       body: tableData, 
       theme: 'grid',
-      headStyles: { fillColor: [230, 230, 230], textColor: 20, fontStyle: 'bold', halign: 'center' },
-      columnStyles: { 0: { halign: 'left' }, 1: { halign: 'right', cellWidth: 50 } },
-      styles: { fontSize: 10 }, 
+      headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold', halign: 'left' },
+      columnStyles: { 
+          0: { halign: 'left' }, 
+          1: { halign: 'right', cellWidth: 50, textColor: [21, 128, 61] } // verde
+      },
+      styles: { fontSize: 9, cellPadding: 4, lineColor: [226, 232, 240] }, 
       margin: { left: 14, right: 14 }
     });
 
-    const finalY = doc.lastAutoTable.finalY || 70;
+    let finalY = doc.lastAutoTable.finalY + 8;
     
-    doc.rect(14, finalY + 5, 182, 12);
+    // Box Destaque Rescisão
+    doc.setFillColor(240, 249, 255); 
+    doc.setDrawColor(186, 230, 253); 
+    doc.roundedRect(14, finalY, 182, 16, 2, 2, 'FD');
+    
     doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold'); doc.text('Total Líquido Rescisório:', 16, finalY + 13);
-    doc.text(formatarMoeda(resultadoRescisao.total), 193, finalY + 13, { align: 'right' });
+    doc.setTextColor(15, 23, 42); 
+    doc.setFont('helvetica', 'bold'); 
+    doc.text('Total Líquido Rescisório:', 18, finalY + 10);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(3, 105, 161);
+    doc.text(formatarMoeda(resultadoRescisao.total), 190, finalY + 11, { align: 'right' });
+    
+    finalY += 35;
+
+    // Assinaturas
+    doc.setDrawColor(148, 163, 184); 
+    doc.line(14, finalY, 70, finalY);
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.setFont('helvetica', 'normal');
+    doc.text('DATA', 42, finalY + 5, { align: 'center' });
+
+    doc.line(80, finalY, 196, finalY);
+    doc.text('ASSINATURA DO FUNCIONÁRIO', 138, finalY + 5, { align: 'center' });
     
     doc.save(`Rescisao_${funcionario ? funcionario.replace(/\s+/g, '_') : 'Funcionario'}.pdf`);
   };
