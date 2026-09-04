@@ -56,13 +56,21 @@ function App() {
   const [resultadoRescisao, setResultadoRescisao] = useState(null);
 
   // ==========================================
-  // ESTADOS DA ABA: CALCULADORA RÁPIDA
+  // ESTADOS DA ABA: CALCULADORA RÁPIDA (CAIXA 1 - DECIMAL)
   // ==========================================
   const [salarioBaseHE, setSalarioBaseHE] = useState('');
   const [tipoCalculoRapido, setTipoCalculoRapido] = useState('he_50');
   const [tempoCalculadora, setTempoCalculadora] = useState('');
   const [diasCalculadora, setDiasCalculadora] = useState('');
   const [resultadoHE, setResultadoHE] = useState(null);
+
+  // ==========================================
+  // ESTADOS DA ABA: CALCULADORA RÁPIDA (CAIXA 2 - HORAS E MINUTOS)
+  // ==========================================
+  const [salarioBaseHE2, setSalarioBaseHE2] = useState('');
+  const [tipoCalculoRapido2, setTipoCalculoRapido2] = useState('he_50');
+  const [tempoCalculadora2, setTempoCalculadora2] = useState('');
+  const [resultadoHE2, setResultadoHE2] = useState(null);
 
   // --- MÁSCARAS E FORMATAÇÕES ---
   const handleCnpjChange = (e) => {
@@ -179,21 +187,19 @@ function App() {
 
     const doc = new jsPDF();
     
-    // Helper para desenhar os campos organizados
     const drawField = (label, value, x, y) => {
       doc.setFontSize(8);
-      doc.setTextColor(100, 116, 139); // slate-500
+      doc.setTextColor(100, 116, 139); 
       doc.setFont('helvetica', 'normal');
       doc.text(label, x, y);
       
       doc.setFontSize(10);
-      doc.setTextColor(15, 23, 42); // slate-900
+      doc.setTextColor(15, 23, 42); 
       doc.setFont('helvetica', 'bold');
       doc.text(value, x, y + 5);
     };
 
-    // 1. Cabeçalho Moderno Neutro (Faixa Azul Escuro)
-    doc.setFillColor(15, 23, 42); // slate-900
+    doc.setFillColor(15, 23, 42); 
     doc.rect(0, 0, 210, 26, 'F');
     
     doc.setTextColor(255, 255, 255);
@@ -203,19 +209,16 @@ function App() {
 
     let currentY = 34;
 
-    // 2. Box: Dados da Empresa
-    doc.setDrawColor(226, 232, 240); // slate-200
-    doc.setFillColor(248, 250, 252); // slate-50
-    doc.roundedRect(14, currentY, 182, 18, 2, 2, 'FD'); // Box com cantos arredondados
+    doc.setDrawColor(226, 232, 240); 
+    doc.setFillColor(248, 250, 252); 
+    doc.roundedRect(14, currentY, 182, 18, 2, 2, 'FD'); 
     drawField('EMPREGADOR / RAZÃO SOCIAL', razaoSocial || 'Não informado', 18, currentY + 6);
     drawField('CNPJ', cnpj || 'Não informado', 130, currentY + 6);
     
     currentY += 22;
 
-    // 3. Box: Dados do Funcionário
-    // REINICIA A COR DE FUNDO PARA NÃO VAZAR O PRETO DO TEXTO ANTERIOR
-    doc.setDrawColor(226, 232, 240); // slate-200
-    doc.setFillColor(248, 250, 252); // slate-50
+    doc.setDrawColor(226, 232, 240); 
+    doc.setFillColor(248, 250, 252); 
     doc.roundedRect(14, currentY, 182, 28, 2, 2, 'FD');
     
     drawField('CÓD.', '001', 18, currentY + 6);
@@ -232,7 +235,6 @@ function App() {
 
     currentY += 34;
 
-    // 4. Tabela de Verbas (autoTable)
     const tableData = [];
     if (salarioEfetivoFolha > 0) tableData.push(['001', descricaoSalarioBase, formatarNumeroBr(salarioEfetivoFolha), '']);
     proventos.forEach(p => tableData.push([p.codigo, p.descricao, formatarNumeroBr(p.valor), '']));
@@ -244,12 +246,12 @@ function App() {
       head: [['Cód', 'Descrição', 'Proventos (R$)', 'Descontos (R$)']],
       body: tableData,
       theme: 'grid',
-      headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold', halign: 'center' }, // blue-600
+      headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold', halign: 'center' }, 
       columnStyles: { 
           0: { halign: 'center', cellWidth: 20 }, 
           1: { halign: 'left' }, 
-          2: { halign: 'right', cellWidth: 40, textColor: [21, 128, 61] }, // green-700
-          3: { halign: 'right', cellWidth: 40, textColor: [185, 28, 28] }  // red-700
+          2: { halign: 'right', cellWidth: 40, textColor: [21, 128, 61] }, 
+          3: { halign: 'right', cellWidth: 40, textColor: [185, 28, 28] }  
       },
       styles: { fontSize: 9, cellPadding: 4, lineColor: [226, 232, 240] },
       margin: { left: 14, right: 14 }
@@ -257,12 +259,10 @@ function App() {
 
     let finalY = doc.lastAutoTable.finalY + 8;
 
-    // 5. Box: Totais e Resumo
     doc.setDrawColor(226, 232, 240);
-    doc.setFillColor(255, 255, 255); // Branco
+    doc.setFillColor(255, 255, 255); 
     doc.roundedRect(14, finalY, 182, 30, 2, 2, 'FD');
     
-    // Separador vertical
     doc.line(140, finalY, 140, finalY + 30);
     
     doc.setFontSize(9);
@@ -272,36 +272,34 @@ function App() {
     doc.text('Total de Descontos', 18, finalY + 20);
     
     doc.setFontSize(10);
-    doc.setTextColor(21, 128, 61); // verde
+    doc.setTextColor(21, 128, 61); 
     doc.setFont('helvetica', 'bold');
     doc.text(formatarMoeda(totalProventos), 135, finalY + 10, { align: 'right' });
     
-    doc.setTextColor(185, 28, 28); // vermelho
+    doc.setTextColor(185, 28, 28); 
     doc.text(formatarMoeda(totalDescontos), 135, finalY + 20, { align: 'right' });
 
-    // Destaque Líquido
-    doc.setFillColor(240, 249, 255); // sky-50
-    doc.setDrawColor(240, 249, 255); // evitar borda preta
+    doc.setFillColor(240, 249, 255); 
+    doc.setDrawColor(240, 249, 255); 
     doc.roundedRect(142, finalY + 2, 52, 26, 2, 2, 'F');
     
     doc.setFontSize(9);
-    doc.setTextColor(3, 105, 161); // sky-700
+    doc.setTextColor(3, 105, 161); 
     doc.setFont('helvetica', 'bold');
     doc.text('VALOR LÍQUIDO', 168, finalY + 12, { align: 'center' });
     
     doc.setFontSize(14);
-    doc.setTextColor(15, 23, 42); // slate-900
+    doc.setTextColor(15, 23, 42); 
     doc.text(formatarMoeda(totalLiquido), 168, finalY + 22, { align: 'center' });
 
     finalY += 45;
 
-    // 6. Rodapé e Assinaturas
     doc.setFontSize(8);
     doc.setTextColor(100, 116, 139);
     doc.setFont('helvetica', 'normal');
     doc.text('DECLARO TER RECEBIDO A IMPORTÂNCIA LÍQUIDA DISCRIMINADA NESTE RECIBO.', 14, finalY);
     
-    doc.setDrawColor(148, 163, 184); // slate-400
+    doc.setDrawColor(148, 163, 184); 
     doc.line(14, finalY + 20, 70, finalY + 20);
     doc.text('DATA', 42, finalY + 25, { align: 'center' });
 
@@ -396,7 +394,6 @@ function App() {
       doc.text(value, x, y + 5);
     };
 
-    // Cabeçalho Escuro Neutro
     doc.setFillColor(15, 23, 42); 
     doc.rect(0, 0, 210, 26, 'F');
     
@@ -407,7 +404,6 @@ function App() {
 
     let currentY = 34;
 
-    // Box Empresa
     doc.setDrawColor(226, 232, 240);
     doc.setFillColor(248, 250, 252); 
     doc.roundedRect(14, currentY, 182, 18, 2, 2, 'FD'); 
@@ -416,8 +412,6 @@ function App() {
     
     currentY += 22;
 
-    // Box Funcionário
-    // REINICIA A COR PARA NÃO VAZAR
     doc.setDrawColor(226, 232, 240);
     doc.setFillColor(248, 250, 252); 
     doc.roundedRect(14, currentY, 182, 28, 2, 2, 'FD');
@@ -435,7 +429,6 @@ function App() {
 
     currentY += 34;
     
-    // Tabela Verbas
     const tableData = [];
     tableData.push(['Saldo de Salário', formatarNumeroBr(resultadoRescisao.saldoSalario)]);
     if (resultadoRescisao.decimoTerceiro > 0) tableData.push(['13º Salário Proporcional', formatarNumeroBr(resultadoRescisao.decimoTerceiro)]);
@@ -451,7 +444,7 @@ function App() {
       headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold', halign: 'left' },
       columnStyles: { 
           0: { halign: 'left' }, 
-          1: { halign: 'right', cellWidth: 50, textColor: [21, 128, 61] } // verde
+          1: { halign: 'right', cellWidth: 50, textColor: [21, 128, 61] } 
       },
       styles: { fontSize: 9, cellPadding: 4, lineColor: [226, 232, 240] }, 
       margin: { left: 14, right: 14 }
@@ -459,7 +452,6 @@ function App() {
 
     let finalY = doc.lastAutoTable.finalY + 8;
     
-    // Box Destaque Rescisão
     doc.setFillColor(240, 249, 255); 
     doc.setDrawColor(186, 230, 253); 
     doc.roundedRect(14, finalY, 182, 16, 2, 2, 'FD');
@@ -475,7 +467,6 @@ function App() {
     
     finalY += 35;
 
-    // Assinaturas
     doc.setDrawColor(148, 163, 184); 
     doc.line(14, finalY, 70, finalY);
     doc.setFontSize(8);
@@ -489,7 +480,7 @@ function App() {
     doc.save(`Rescisao_${funcionario ? funcionario.replace(/\s+/g, '_') : 'Funcionario'}.pdf`);
   };
 
-  // --- LÓGICA DA CALCULADORA RÁPIDA ---
+  // --- LÓGICA DA CALCULADORA RÁPIDA (CAIXA 1 - DECIMAL) ---
   const calcularRapido = () => {
     const salario = parseFloat(salarioBaseHE);
     if (!salario) return alert("Preencha o Salário Base corretamente!");
@@ -524,6 +515,47 @@ function App() {
     }
 
     setResultadoHE({ total: valorFinal, tipo: tipoResultado, titulo: tituloResultado });
+  };
+
+  // --- LÓGICA DA CALCULADORA RÁPIDA (CAIXA 2 - HORAS E MINUTOS) ---
+  const calcularRapidoHorasMinutos = () => {
+    const salario = parseFloat(salarioBaseHE2);
+    if (!salario) return alert("Preencha o Salário Base corretamente!");
+    if (!tempoCalculadora2 || tempoCalculadora2.length !== 5) return alert("Preencha o tempo no formato HH:MM corretamente!");
+
+    const [h, m] = tempoCalculadora2.split(':').map(Number);
+    if (m > 59) return alert("Os minutos não podem ser maiores que 59!");
+
+    let divisor = 220;
+    if (tipoCalculoRapido2.startsWith('cred_')) divisor = 120;
+
+    let percentual = 0;
+    let isDesconto = tipoCalculoRapido2 === 'atraso';
+
+    if (tipoCalculoRapido2.startsWith('he_') || tipoCalculoRapido2.startsWith('cred_')) {
+        percentual = parseInt(tipoCalculoRapido2.split('_')[1]) / 100;
+    }
+
+    // 1. Acha o valor da hora exato e arredonda para 2 casas decimais (igual calculadora de mesa)
+    const valorHoraExata = (salario / divisor) * (1 + percentual);
+    const valorHoraArredondada = parseFloat(valorHoraExata.toFixed(2));
+
+    // 2. Acha o valor de 1 minuto dividindo a hora por 60 e arredonda para 2 casas
+    const valorMinutoExato = valorHoraArredondada / 60;
+    const valorMinutoArredondado = parseFloat(valorMinutoExato.toFixed(2));
+
+    // 3. Multiplica pelo tempo real trabalhado
+    const totalHorasCalculadas = h * valorHoraArredondada;
+    const totalMinutosCalculados = m * valorMinutoArredondado;
+
+    const valorFinal = totalHorasCalculadas + totalMinutosCalculados;
+
+    setResultadoHE2({ 
+        total: valorFinal, 
+        tipo: isDesconto ? 'desconto' : 'provento', 
+        titulo: isDesconto ? 'Total a Descontar:' : 'Total a Receber:',
+        detalhes: `Hora considerada: ${formatarMoeda(valorHoraArredondada)} | Minuto considerado: ${formatarMoeda(valorMinutoArredondado)}`
+    });
   };
 
   return (
@@ -957,8 +989,9 @@ function App() {
             {/* ======================================================== */}
             {abaAtiva === 'calculadora' && (
                 <div className="max-w-2xl mx-auto w-full animate-in slide-in-from-right duration-500">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Calculadora Rápida</h2>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Calculadora Rápida (Decimal)</h2>
                     
+                    {/* CAIXA 1: CÁLCULO DECIMAL (PADRÃO SISTEMA) */}
                     <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
@@ -1004,7 +1037,7 @@ function App() {
                         
                         <div className="pt-4">
                             <button onClick={calcularRapido} className="w-full bg-slate-800 text-white font-bold py-4 rounded-xl hover:bg-slate-700 transition-all flex justify-center items-center space-x-2 text-lg">
-                                <span>Calcular</span>
+                                <span>Calcular (Decimal)</span>
                             </button>
                         </div>
 
@@ -1013,6 +1046,60 @@ function App() {
                                 <div className="flex justify-between items-center font-bold text-2xl text-slate-900">
                                     <span>{resultadoHE.titulo}</span>
                                     <span className={resultadoHE.tipo === 'desconto' ? 'text-red-600' : 'text-blue-600'}>{formatarMoeda(resultadoHE.total)}</span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <h2 className="text-2xl font-bold text-gray-900 mt-12 mb-6">Cálculo Hora Extra Horas e Minutos</h2>
+                    
+                    {/* CAIXA 2: CÁLCULO HORAS E MINUTOS (MANUAL / DP) */}
+                    <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm space-y-6 mb-12">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Salário Base (R$)</label>
+                                <input type="number" placeholder="Ex: 2000" value={salarioBaseHE2} onChange={(e) => setSalarioBaseHE2(e.target.value)} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Cálculo</label>
+                                <select 
+                                    value={tipoCalculoRapido2} 
+                                    onChange={(e) => { 
+                                        setTipoCalculoRapido2(e.target.value); 
+                                        setResultadoHE2(null); 
+                                        setTempoCalculadora2(''); 
+                                    }} 
+                                    className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none"
+                                >
+                                    <option value="he_50">Hora Extra 50%</option>
+                                    <option value="he_60">Hora Extra 60%</option>
+                                    <option value="he_100">Hora Extra 100%</option>
+                                    <option value="cred_50">Hora Extra 50% ( Cred. Div. )</option>
+                                    <option value="cred_60">Hora Extra 60% ( Cred. Div. )</option>
+                                    <option value="cred_100">Hora Extra 100% ( Cred. Div. )</option>
+                                    <option value="atraso">Atraso</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Tempo (HH:MM)</label>
+                                <input type="text" placeholder="Ex: 00:30" value={tempoCalculadora2} onChange={(e) => setTempoCalculadora2(aplicarMascaraHora(e.target.value))} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
+                            </div>
+                        </div>
+                        
+                        <div className="pt-4">
+                            <button onClick={calcularRapidoHorasMinutos} className="w-full bg-slate-800 text-white font-bold py-4 rounded-xl hover:bg-slate-700 transition-all flex justify-center items-center space-x-2 text-lg">
+                                <span>Calcular (Horas e Minutos)</span>
+                            </button>
+                        </div>
+
+                        {resultadoHE2 && (
+                            <div className={`mt-8 p-6 rounded-xl border ${resultadoHE2.tipo === 'desconto' ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'}`}>
+                                <div className="flex justify-between items-center font-bold text-2xl text-slate-900 mb-2">
+                                    <span>{resultadoHE2.titulo}</span>
+                                    <span className={resultadoHE2.tipo === 'desconto' ? 'text-red-600' : 'text-blue-600'}>{formatarMoeda(resultadoHE2.total)}</span>
+                                </div>
+                                <div className="text-sm text-gray-500 font-medium text-right border-t border-gray-200/50 pt-2 mt-2">
+                                    {resultadoHE2.detalhes}
                                 </div>
                             </div>
                         )}
