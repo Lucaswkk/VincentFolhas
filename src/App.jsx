@@ -65,7 +65,7 @@ function App() {
   const [resultadoHE, setResultadoHE] = useState(null);
 
   // ==========================================
-  // ESTADOS DA ABA: CALCULADORA RÁPIDA (CAIXA 2 - HORAS E MINUTOS)
+  // ESTADOS DA ABA: CALCULADORA RÁPIDA (CAIXA 2 - PADRÃO CELULAR)
   // ==========================================
   const [salarioBaseHE2, setSalarioBaseHE2] = useState('');
   const [tipoCalculoRapido2, setTipoCalculoRapido2] = useState('he_50');
@@ -517,13 +517,14 @@ function App() {
     setResultadoHE({ total: valorFinal, tipo: tipoResultado, titulo: tituloResultado });
   };
 
-  // --- LÓGICA DA CALCULADORA RÁPIDA (CAIXA 2 - HORAS E MINUTOS) ---
-  const calcularRapidoHorasMinutos = () => {
+  // --- LÓGICA DA CALCULADORA RÁPIDA (CAIXA 2 - PADRÃO CELULAR) ---
+  const calcularRapidoCelular = () => {
     const salario = parseFloat(salarioBaseHE2);
     if (!salario) return alert("Preencha o Salário Base corretamente!");
     if (!tempoCalculadora2 || tempoCalculadora2.length !== 5) return alert("Preencha o tempo no formato HH:MM corretamente!");
 
     const [h, m] = tempoCalculadora2.split(':').map(Number);
+    // Ainda mantemos o aviso de minutos até 59 para o usuário não digitar coisas estranhas como 15:99
     if (m > 59) return alert("Os minutos não podem ser maiores que 59!");
 
     let divisor = 220;
@@ -536,25 +537,17 @@ function App() {
         percentual = parseInt(tipoCalculoRapido2.split('_')[1]) / 100;
     }
 
-    // 1. Acha o valor da hora exato e arredonda para 2 casas decimais (igual calculadora de mesa)
-    const valorHoraExata = (salario / divisor) * (1 + percentual);
-    const valorHoraArredondada = parseFloat(valorHoraExata.toFixed(2));
+    const tempoCelular = parseFloat(tempoCalculadora2.replace(':', '.'));
 
-    // 2. Acha o valor de 1 minuto dividindo a hora por 60 e arredonda para 2 casas
-    const valorMinutoExato = valorHoraArredondada / 60;
-    const valorMinutoArredondado = parseFloat(valorMinutoExato.toFixed(2));
-
-    // 3. Multiplica pelo tempo real trabalhado
-    const totalHorasCalculadas = h * valorHoraArredondada;
-    const totalMinutosCalculados = m * valorMinutoArredondado;
-
-    const valorFinal = totalHorasCalculadas + totalMinutosCalculados;
+    // Agora faz a matemática linear exata que a calculadora de mão faria
+    const valorBaseHora = salario / divisor;
+    const valorFinal = valorBaseHora * tempoCelular * (1 + percentual);
 
     setResultadoHE2({ 
         total: valorFinal, 
         tipo: isDesconto ? 'desconto' : 'provento', 
         titulo: isDesconto ? 'Total a Descontar:' : 'Total a Receber:',
-        detalhes: `Hora considerada: ${formatarMoeda(valorHoraArredondada)} | Minuto considerado: ${formatarMoeda(valorMinutoArredondado)}`
+        detalhes: `Conta da Calculadora: (${formatarMoeda(salario)} ÷ ${divisor}) × ${tempoCelular} + ${percentual * 100}%`
     });
   };
 
@@ -989,9 +982,9 @@ function App() {
             {/* ======================================================== */}
             {abaAtiva === 'calculadora' && (
                 <div className="max-w-2xl mx-auto w-full animate-in slide-in-from-right duration-500">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Calculadora Rápida (Decimal)</h2>
                     
-                    {/* CAIXA 1: CÁLCULO DECIMAL (PADRÃO SISTEMA) */}
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Calculadora Rápida (Decimal)</h2>
+                    {/* CAIXA 1: CÁLCULO DECIMAL (PADRÃO SISTEMA/CONTÁBIL) */}
                     <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
@@ -1037,7 +1030,7 @@ function App() {
                         
                         <div className="pt-4">
                             <button onClick={calcularRapido} className="w-full bg-slate-800 text-white font-bold py-4 rounded-xl hover:bg-slate-700 transition-all flex justify-center items-center space-x-2 text-lg">
-                                <span>Calcular (Decimal)</span>
+                                <span>Calcular (Padrão Decimal)</span>
                             </button>
                         </div>
 
@@ -1051,9 +1044,9 @@ function App() {
                         )}
                     </div>
 
-                    <h2 className="text-2xl font-bold text-gray-900 mt-12 mb-6">Cálculo Hora Extra Horas e Minutos</h2>
+                    <h2 className="text-2xl font-bold text-gray-900 mt-12 mb-6">Cálculo Padrão Celular / Calculadora</h2>
                     
-                    {/* CAIXA 2: CÁLCULO HORAS E MINUTOS (MANUAL / DP) */}
+                    {/* CAIXA 2: CÁLCULO PADRÃO CELULAR (MANUAL / DP) */}
                     <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm space-y-6 mb-12">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
@@ -1082,13 +1075,13 @@ function App() {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Tempo (HH:MM)</label>
-                                <input type="text" placeholder="Ex: 00:30" value={tempoCalculadora2} onChange={(e) => setTempoCalculadora2(aplicarMascaraHora(e.target.value))} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
+                                <input type="text" placeholder="Ex: 00:00" value={tempoCalculadora2} onChange={(e) => setTempoCalculadora2(aplicarMascaraHora(e.target.value))} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
                             </div>
                         </div>
                         
                         <div className="pt-4">
-                            <button onClick={calcularRapidoHorasMinutos} className="w-full bg-slate-800 text-white font-bold py-4 rounded-xl hover:bg-slate-700 transition-all flex justify-center items-center space-x-2 text-lg">
-                                <span>Calcular (Horas e Minutos)</span>
+                            <button onClick={calcularRapidoCelular} className="w-full bg-slate-800 text-white font-bold py-4 rounded-xl hover:bg-slate-700 transition-all flex justify-center items-center space-x-2 text-lg">
+                                <span>Calcular (Padrão Celular)</span>
                             </button>
                         </div>
 
