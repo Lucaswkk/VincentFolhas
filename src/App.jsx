@@ -310,7 +310,17 @@ function App() {
     doc.line(80, finalY + 20, 196, finalY + 20);
     doc.text('ASSINATURA DO FUNCIONÁRIO', 138, finalY + 25, { align: 'center' });
 
-    doc.save(`Holerite_${funcionario ? funcionario.replace(/\s+/g, '_') : 'Funcionario'}.pdf`);
+    // Forçar download no Mobile e PC
+    const fileName = `Holerite_${funcionario ? funcionario.replace(/\s+/g, '_') : 'Funcionario'}.pdf`;
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   // LÓGICA DE RESCISÃO
@@ -479,7 +489,17 @@ function App() {
     doc.line(80, finalY, 196, finalY);
     doc.text('ASSINATURA DO FUNCIONÁRIO', 138, finalY + 5, { align: 'center' });
     
-    doc.save(`Rescisao_${funcionario ? funcionario.replace(/\s+/g, '_') : 'Funcionario'}.pdf`);
+    // Forçar download no Mobile e PC
+    const fileName = `Rescisao_${funcionario ? funcionario.replace(/\s+/g, '_') : 'Funcionario'}.pdf`;
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   // LÓGICA DA CALCULADORA RÁPIDA (CAIXA 1 - DECIMAL)
