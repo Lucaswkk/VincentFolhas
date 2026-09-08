@@ -1069,7 +1069,7 @@ function App() {
                                 ) : (
                                     <>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Tempo (HH:MM)</label>
-                                        <input type="text" placeholder="Ex: 05:45" value={tempoCalculadora} onChange={(e) => setTempoCalculadora(aplicarMascaraHora(e.target.value))} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
+                                        <input type="text" placeholder="Ex: 00:00" value={tempoCalculadora} onChange={(e) => setTempoCalculadora(aplicarMascaraHora(e.target.value))} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
                                     </>
                                 )}
                             </div>
@@ -1122,7 +1122,7 @@ function App() {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Tempo (HH:MM)</label>
-                                <input type="text" placeholder="Ex: 15:45" value={tempoCalculadora2} onChange={(e) => setTempoCalculadora2(aplicarMascaraHora(e.target.value))} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
+                                <input type="text" placeholder="Ex: 00:00" value={tempoCalculadora2} onChange={(e) => setTempoCalculadora2(aplicarMascaraHora(e.target.value))} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
                             </div>
                         </div>
                         
@@ -1156,7 +1156,7 @@ function App() {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Tempo (HH:MM)</label>
-                                <input type="text" placeholder="Ex: 00:56" value={tempoCalculadoraAN} onChange={(e) => setTempoCalculadoraAN(aplicarMascaraHora(e.target.value))} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
+                                <input type="text" placeholder="Ex: 00:00" value={tempoCalculadoraAN} onChange={(e) => setTempoCalculadoraAN(aplicarMascaraHora(e.target.value))} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
                             </div>
                         </div>
                         
