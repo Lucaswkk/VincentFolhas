@@ -3,26 +3,22 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 function App() {
-  // --- ESTADO DE NAVEGAÇÃO ---
+  // ESTADO DE NAVEGAÇÃO
   const [abaAtiva, setAbaAtiva] = useState('gerar-folha');
 
-  // --- DATA ATUAL PARA SIDEBAR ---
+  // DATA ATUAL PARA SIDEBAR
   const dataAtual = new Date();
   const mesString = dataAtual.toLocaleString('pt-BR', { month: 'long' });
   const competenciaAutomatica = `${mesString.charAt(0).toUpperCase() + mesString.slice(1)}/${dataAtual.getFullYear()}`;
 
-  // ==========================================
   // ESTADOS GLOBAIS (EMPRESA / FUNCIONÁRIO)
-  // ==========================================
   const [cnpj, setCnpj] = useState('');
   const [razaoSocial, setRazaoSocial] = useState('');
   const [cpf, setCpf] = useState('');
   const [funcionario, setFuncionario] = useState('');
   const [cargo, setCargo] = useState('');
 
-  // ==========================================
   // ESTADOS DA ABA: GERAR FOLHA
-  // ==========================================
   const [dataEntrada, setDataEntrada] = useState(''); 
   const [dataCompetencia, setDataCompetencia] = useState('');
   const [salarioFuncionario, setSalarioFuncionario] = useState(''); 
@@ -45,9 +41,7 @@ function App() {
   const [diasFalta, setDiasFalta] = useState(''); 
   const [tempoHEFixa, setTempoHEFixa] = useState(''); 
 
-  // ==========================================
   // ESTADOS DA ABA: RESCISÃO
-  // ==========================================
   const [salarioBase, setSalarioBase] = useState('');
   const [admissao, setAdmissao] = useState('');
   const [demissao, setDemissao] = useState('');
@@ -55,24 +49,25 @@ function App() {
   const [avisoPrevioIndenizado, setAvisoPrevioIndenizado] = useState(false);
   const [resultadoRescisao, setResultadoRescisao] = useState(null);
 
-  // ==========================================
   // ESTADOS DA ABA: CALCULADORA RÁPIDA (CAIXA 1 - DECIMAL)
-  // ==========================================
   const [salarioBaseHE, setSalarioBaseHE] = useState('');
   const [tipoCalculoRapido, setTipoCalculoRapido] = useState('he_50');
   const [tempoCalculadora, setTempoCalculadora] = useState('');
   const [diasCalculadora, setDiasCalculadora] = useState('');
   const [resultadoHE, setResultadoHE] = useState(null);
 
-  // ==========================================
   // ESTADOS DA ABA: CALCULADORA RÁPIDA (CAIXA 2 - PADRÃO CELULAR)
-  // ==========================================
   const [salarioBaseHE2, setSalarioBaseHE2] = useState('');
   const [tipoCalculoRapido2, setTipoCalculoRapido2] = useState('he_50');
   const [tempoCalculadora2, setTempoCalculadora2] = useState('');
   const [resultadoHE2, setResultadoHE2] = useState(null);
 
-  // --- MÁSCARAS E FORMATAÇÕES ---
+  // ESTADOS DA ABA: CALCULADORA RÁPIDA (CAIXA 3 - ADICIONAL NOTURNO)
+  const [salarioBaseAN, setSalarioBaseAN] = useState('');
+  const [tempoCalculadoraAN, setTempoCalculadoraAN] = useState('');
+  const [resultadoAN, setResultadoAN] = useState(null);
+
+  // MÁSCARAS E FORMATAÇÕES
   const handleCnpjChange = (e) => {
     let value = e.target.value.replace(/\D/g, '');
     value = value.replace(/(\d{2})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1/$2').replace(/(\d{4})(\d)/, '$1-$2').replace(/(-\d{2})\d+?$/, '$1');
@@ -97,7 +92,7 @@ function App() {
   const formatarNumeroBr = (valor) => valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const formatarMoeda = (valor) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
 
-  // --- LÓGICA DE DIAS PROPORCIONAIS (FOLHA) ---
+  // LÓGICA DE DIAS PROPORCIONAIS (FOLHA)
   const salarioVal = parseFloat(salarioFuncionario) || 0; 
   let diasPropCalc = 0;
   let salarioEfetivoFolha = salarioVal;
@@ -116,7 +111,7 @@ function App() {
       }
   }
 
-  // --- LÓGICA DE RUBRICAS AVULSAS E FIXAS ---
+  // LÓGICA DE RUBRICAS AVULSAS E FIXAS
   const handleSalvarRubrica = () => {
     if (!novoCodigo || !novaDescricao || !novoValor) return;
     const valorNumerico = parseFloat(novoValor.replace(/\./g, '').replace(',', '.')) || 0;
@@ -141,6 +136,17 @@ function App() {
         const valorAtraso = horasDecimais * (salarioVal / 220);
 
         setRubricas([...rubricas, { id: Date.now(), tipo: 'desconto', codigo: 'ATR', descricao: `Atraso (${tempoHEFixa})`, valor: valorAtraso }]);
+        setModoAdicao('inativo'); setTempoHEFixa('');
+    }
+    else if (rubricaFixaSelecionada === 'adicional_noturno') {
+        if (!tempoHEFixa || tempoHEFixa.length !== 5) return alert("Preencha as horas no formato HH:MM corretamente!");
+        const [h, m] = tempoHEFixa.split(':').map(Number);
+        if (m > 59) return alert("Os minutos não podem ser maiores que 59!");
+
+        const horasDecimais = h + (m / 60);
+        const valorAddNoturno = horasDecimais * (salarioVal / 220) * 0.20;
+
+        setRubricas([...rubricas, { id: Date.now(), tipo: 'provento', codigo: `ADN`, descricao: `Adicional Noturno 20% (${tempoHEFixa})`, valor: valorAddNoturno }]);
         setModoAdicao('inativo'); setTempoHEFixa('');
     }
     else if (rubricaFixaSelecionada.startsWith('he_')) {
@@ -171,7 +177,7 @@ function App() {
 
   const handleRemoverRubrica = (id) => setRubricas(rubricas.filter(item => item.id !== id));
 
-  // --- TOTAIS DA FOLHA ---
+  // TOTAIS DA FOLHA
   const proventos = rubricas.filter(r => r.tipo === 'provento');
   const descontos = rubricas.filter(r => r.tipo === 'desconto');
   
@@ -179,9 +185,7 @@ function App() {
   const totalDescontos = descontos.reduce((acc, curr) => acc + curr.valor, 0);
   const totalLiquido = totalProventos - totalDescontos;
 
-  // ========================================================
   // PDF MODERNO: GERAR FOLHA (HOLERITE)
-  // ========================================================
   const gerarPDF = () => {
     if (!salarioFuncionario) return alert("O campo 'Salário Base' é obrigatório para gerar o PDF!");
 
@@ -309,7 +313,7 @@ function App() {
     doc.save(`Holerite_${funcionario ? funcionario.replace(/\s+/g, '_') : 'Funcionario'}.pdf`);
   };
 
-  // --- LÓGICA DE RESCISÃO ---
+  // LÓGICA DE RESCISÃO
   const calcularAvosUnificados = (d1, d2) => {
     const dataInicio = new Date(`${d1}T12:00:00`); 
     const dataFim = new Date(`${d2}T12:00:00`); 
@@ -374,9 +378,7 @@ function App() {
     });
   };
 
-  // ========================================================
   // PDF MODERNO: RESCISÃO
-  // ========================================================
   const gerarPDFRescisao = () => {
     if (!resultadoRescisao) return alert("Calcule a rescisão primeiro!");
 
@@ -480,7 +482,7 @@ function App() {
     doc.save(`Rescisao_${funcionario ? funcionario.replace(/\s+/g, '_') : 'Funcionario'}.pdf`);
   };
 
-  // --- LÓGICA DA CALCULADORA RÁPIDA (CAIXA 1 - DECIMAL) ---
+  // LÓGICA DA CALCULADORA RÁPIDA (CAIXA 1 - DECIMAL)
   const calcularRapido = () => {
     const salario = parseFloat(salarioBaseHE);
     if (!salario) return alert("Preencha o Salário Base corretamente!");
@@ -517,37 +519,57 @@ function App() {
     setResultadoHE({ total: valorFinal, tipo: tipoResultado, titulo: tituloResultado });
   };
 
-  // --- LÓGICA DA CALCULADORA RÁPIDA (CAIXA 2 - PADRÃO CELULAR) ---
+  // LÓGICA DA CALCULADORA RÁPIDA (CAIXA 2 - PADRÃO CELULAR)
   const calcularRapidoCelular = () => {
     const salario = parseFloat(salarioBaseHE2);
     if (!salario) return alert("Preencha o Salário Base corretamente!");
     if (!tempoCalculadora2 || tempoCalculadora2.length !== 5) return alert("Preencha o tempo no formato HH:MM corretamente!");
 
     const [h, m] = tempoCalculadora2.split(':').map(Number);
-    // Ainda mantemos o aviso de minutos até 59 para o usuário não digitar coisas estranhas como 15:99
     if (m > 59) return alert("Os minutos não podem ser maiores que 59!");
 
     let divisor = 220;
     if (tipoCalculoRapido2.startsWith('cred_')) divisor = 120;
 
-    let percentual = 0;
+    let multiplicadorDisplay = '';
+    let multiplicador = 1;
     let isDesconto = tipoCalculoRapido2 === 'atraso';
 
     if (tipoCalculoRapido2.startsWith('he_') || tipoCalculoRapido2.startsWith('cred_')) {
-        percentual = parseInt(tipoCalculoRapido2.split('_')[1]) / 100;
+        const perc = parseInt(tipoCalculoRapido2.split('_')[1]) / 100;
+        multiplicador = 1 + perc;
+        multiplicadorDisplay = `+ ${perc * 100}%`;
     }
 
     const tempoCelular = parseFloat(tempoCalculadora2.replace(':', '.'));
-
-    // Agora faz a matemática linear exata que a calculadora de mão faria
     const valorBaseHora = salario / divisor;
-    const valorFinal = valorBaseHora * tempoCelular * (1 + percentual);
+    const valorFinal = valorBaseHora * tempoCelular * multiplicador;
 
     setResultadoHE2({ 
         total: valorFinal, 
         tipo: isDesconto ? 'desconto' : 'provento', 
         titulo: isDesconto ? 'Total a Descontar:' : 'Total a Receber:',
-        detalhes: `Conta da Calculadora: (${formatarMoeda(salario)} ÷ ${divisor}) × ${tempoCelular} + ${percentual * 100}%`
+        detalhes: `Conta da Calculadora: (${formatarMoeda(salario)} ÷ ${divisor}) × ${tempoCelular} ${multiplicadorDisplay}`
+    });
+  };
+
+  // LÓGICA DA CALCULADORA RÁPIDA (CAIXA 3 - ADICIONAL NOTURNO)
+  const calcularAdicionalNoturno = () => {
+    const salario = parseFloat(salarioBaseAN);
+    if (!salario) return alert("Preencha o Salário Base corretamente!");
+    if (!tempoCalculadoraAN || tempoCalculadoraAN.length !== 5) return alert("Preencha o tempo no formato HH:MM corretamente!");
+
+    const [h, m] = tempoCalculadoraAN.split(':').map(Number);
+    if (m > 59) return alert("Os minutos não podem ser maiores que 59!");
+
+    // Usando a lógica celular conforme validado: (Salario / 220) * Tempo Literal * 20%
+    const tempoCelular = parseFloat(tempoCalculadoraAN.replace(':', '.'));
+    const valorFinal = (salario / 220) * tempoCelular * 0.20;
+
+    setResultadoAN({ 
+        total: valorFinal, 
+        tipo: 'provento', 
+        titulo: 'Total a Receber:'
     });
   };
 
@@ -584,9 +606,7 @@ function App() {
 
         <div className="p-8 w-full max-w-7xl mx-auto">
             
-            {/* ======================================================== */}
-            {/* ABA 1: GERAR FOLHA                                       */}
-            {/* ======================================================== */}
+            {/* ABA 1: GERAR FOLHA */}
             {abaAtiva === 'gerar-folha' && (
                 <div className="animate-in fade-in duration-500">
                     <div className="mb-8">
@@ -730,6 +750,7 @@ function App() {
                                                 >
                                                     <option value="falta">Falta (Dias)</option>
                                                     <option value="atraso">Atraso (HH:MM)</option>
+                                                    <option value="adicional_noturno">Adicional Noturno 20%</option>
                                                     <option value="he_50">Hora Extra 50%</option>
                                                     <option value="he_60">Hora Extra 60%</option>
                                                     <option value="he_100">Hora Extra 100%</option>
@@ -746,7 +767,7 @@ function App() {
                                                 </div>
                                             )}
 
-                                            {(rubricaFixaSelecionada.startsWith('he_') || rubricaFixaSelecionada.startsWith('cred_') || rubricaFixaSelecionada === 'atraso') && (
+                                            {(rubricaFixaSelecionada.startsWith('he_') || rubricaFixaSelecionada.startsWith('cred_') || rubricaFixaSelecionada === 'atraso' || rubricaFixaSelecionada === 'adicional_noturno') && (
                                                 <div className="w-32">
                                                     <label className="block text-xs font-medium text-gray-700 mb-1">Tempo (HH:MM)</label>
                                                     <input type="text" value={tempoHEFixa} onChange={handleTempoHEFixaChange} placeholder="Ex: 01:30" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
@@ -763,12 +784,14 @@ function App() {
                                                         if (rubricaFixaSelecionada === 'falta' && diasFalta > 0) {
                                                             return formatarMoeda((salario / 30) * parseInt(diasFalta));
                                                         }
-                                                        if ((rubricaFixaSelecionada.startsWith('he_') || rubricaFixaSelecionada.startsWith('cred_') || rubricaFixaSelecionada === 'atraso') && tempoHEFixa.length === 5) {
+                                                        if ((rubricaFixaSelecionada.startsWith('he_') || rubricaFixaSelecionada.startsWith('cred_') || rubricaFixaSelecionada === 'atraso' || rubricaFixaSelecionada === 'adicional_noturno') && tempoHEFixa.length === 5) {
                                                             const [h, m] = tempoHEFixa.split(':').map(Number);
                                                             if (m <= 59) {
                                                                 const horasDecimais = h + (m / 60);
                                                                 if (rubricaFixaSelecionada === 'atraso') {
                                                                     return formatarMoeda(horasDecimais * (salario / 220));
+                                                                } else if (rubricaFixaSelecionada === 'adicional_noturno') {
+                                                                    return formatarMoeda(horasDecimais * (salario / 220) * 0.20);
                                                                 } else if (rubricaFixaSelecionada.startsWith('he_')) {
                                                                     const perc = parseInt(rubricaFixaSelecionada.split('_')[1]);
                                                                     return formatarMoeda(horasDecimais * ((salario / 220) * (1 + (perc / 100))));
@@ -874,9 +897,7 @@ function App() {
                 </div>
             )}
 
-            {/* ======================================================== */}
-            {/* ABA 2: RESCISÃO                                          */}
-            {/* ======================================================== */}
+            {/* ABA 2: RESCISÃO */}
             {abaAtiva === 'rescisao' && (
                 <div className="max-w-3xl mx-auto w-full animate-in slide-in-from-right duration-500">
                     <h2 className="text-2xl font-bold text-gray-900 mb-6">Cálculo de Rescisão</h2>
@@ -977,11 +998,9 @@ function App() {
                 </div>
             )}
 
-            {/* ======================================================== */}
-            {/* ABA 3: CALCULADORA RÁPIDA                                */}
-            {/* ======================================================== */}
+            {/* ABA 3: CALCULADORA RÁPIDA */}
             {abaAtiva === 'calculadora' && (
-                <div className="max-w-2xl mx-auto w-full animate-in slide-in-from-right duration-500">
+                <div className="max-w-2xl mx-auto w-full animate-in slide-in-from-right duration-500 pb-12">
                     
                     <h2 className="text-2xl font-bold text-gray-900 mb-6">Calculadora Rápida (Decimal)</h2>
                     {/* CAIXA 1: CÁLCULO DECIMAL (PADRÃO SISTEMA/CONTÁBIL) */}
@@ -1047,7 +1066,7 @@ function App() {
                     <h2 className="text-2xl font-bold text-gray-900 mt-12 mb-6">Cálculo Padrão Celular / Calculadora</h2>
                     
                     {/* CAIXA 2: CÁLCULO PADRÃO CELULAR (MANUAL / DP) */}
-                    <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm space-y-6 mb-12">
+                    <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Salário Base (R$)</label>
@@ -1075,7 +1094,7 @@ function App() {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Tempo (HH:MM)</label>
-                                <input type="text" placeholder="Ex: 00:00" value={tempoCalculadora2} onChange={(e) => setTempoCalculadora2(aplicarMascaraHora(e.target.value))} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
+                                <input type="text" placeholder="Ex: 15:45" value={tempoCalculadora2} onChange={(e) => setTempoCalculadora2(aplicarMascaraHora(e.target.value))} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
                             </div>
                         </div>
                         
@@ -1097,6 +1116,41 @@ function App() {
                             </div>
                         )}
                     </div>
+
+                    <h2 className="text-2xl font-bold text-gray-900 mt-12 mb-6">Cálculo de Adicional Noturno (20%)</h2>
+                    
+                    {/* CAIXA 3: ADICIONAL NOTURNO (EXCLUSIVA) */}
+                    <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Salário Base (R$)</label>
+                                <input type="number" placeholder="Ex: 2500" value={salarioBaseAN} onChange={(e) => setSalarioBaseAN(e.target.value)} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Tempo (HH:MM)</label>
+                                <input type="text" placeholder="Ex: 00:00" value={tempoCalculadoraAN} onChange={(e) => setTempoCalculadoraAN(aplicarMascaraHora(e.target.value))} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
+                            </div>
+                        </div>
+                        
+                        <div className="pt-4">
+                            <button onClick={calcularAdicionalNoturno} className="w-full bg-slate-800 text-white font-bold py-4 rounded-xl hover:bg-slate-700 transition-all flex justify-center items-center space-x-2 text-lg">
+                                <span>Calcular Adicional Noturno</span>
+                            </button>
+                        </div>
+
+                        {resultadoAN && (
+                            <div className="mt-8 p-6 rounded-xl border bg-blue-50 border-blue-200">
+                                <div className="flex justify-between items-center font-bold text-2xl text-slate-900 mb-2">
+                                    <span>{resultadoAN.titulo}</span>
+                                    <span className="text-blue-600">{formatarMoeda(resultadoAN.total)}</span>
+                                </div>
+                                <div className="text-sm text-gray-500 font-medium text-right border-t border-gray-200/50 pt-2 mt-2">
+                                    {resultadoAN.detalhes}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                 </div>
             )}
 
