@@ -3,8 +3,9 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 function App() {
-  // ESTADO DE NAVEGAÇÃO
+  // ESTADOS DE NAVEGAÇÃO E MOBILE
   const [abaAtiva, setAbaAtiva] = useState('gerar-folha');
+  const [menuAberto, setMenuAberto] = useState(false);
 
   // DATA ATUAL PARA SIDEBAR
   const dataAtual = new Date();
@@ -22,21 +23,15 @@ function App() {
   const [dataEntrada, setDataEntrada] = useState(''); 
   const [dataCompetencia, setDataCompetencia] = useState('');
   const [salarioFuncionario, setSalarioFuncionario] = useState(''); 
-  
-  // Controle de Dias Proporcionais
   const [usarDiasProporcionais, setUsarDiasProporcionais] = useState(false);
   const [dataInicioProp, setDataInicioProp] = useState('');
   const [dataFimProp, setDataFimProp] = useState('');
-
-  // Rubricas
   const [rubricas, setRubricas] = useState([]);
   const [modoAdicao, setModoAdicao] = useState('inativo'); 
   const [tipoNovoItem, setTipoNovoItem] = useState(''); 
   const [novoCodigo, setNovoCodigo] = useState('');
   const [novaDescricao, setNovaDescricao] = useState('');
   const [novoValor, setNovoValor] = useState('');
-  
-  // Rubricas Fixas
   const [rubricaFixaSelecionada, setRubricaFixaSelecionada] = useState('falta');
   const [diasFalta, setDiasFalta] = useState(''); 
   const [tempoHEFixa, setTempoHEFixa] = useState(''); 
@@ -49,14 +44,13 @@ function App() {
   const [avisoPrevioIndenizado, setAvisoPrevioIndenizado] = useState(false);
   const [resultadoRescisao, setResultadoRescisao] = useState(null);
 
-  // ESTADOS DA ABA: CALCULADORA RÁPIDA (CAIXA 1 - DECIMAL)
+  // ESTADOS DA ABA: CALCULADORA RÁPIDA (CAIXA 1 E 2)
   const [salarioBaseHE, setSalarioBaseHE] = useState('');
   const [tipoCalculoRapido, setTipoCalculoRapido] = useState('he_50');
   const [tempoCalculadora, setTempoCalculadora] = useState('');
   const [diasCalculadora, setDiasCalculadora] = useState('');
   const [resultadoHE, setResultadoHE] = useState(null);
 
-  // ESTADOS DA ABA: CALCULADORA RÁPIDA (CAIXA 2 - PADRÃO CELULAR)
   const [salarioBaseHE2, setSalarioBaseHE2] = useState('');
   const [tipoCalculoRapido2, setTipoCalculoRapido2] = useState('he_50');
   const [tempoCalculadora2, setTempoCalculadora2] = useState('');
@@ -66,6 +60,12 @@ function App() {
   const [salarioBaseAN, setSalarioBaseAN] = useState('');
   const [tempoCalculadoraAN, setTempoCalculadoraAN] = useState('');
   const [resultadoAN, setResultadoAN] = useState(null);
+
+  // FUNÇÃO AUXILIAR PARA TROCAR DE ABA NO MOBILE
+  const trocarAba = (aba) => {
+    setAbaAtiva(aba);
+    setMenuAberto(false);
+  };
 
   // MÁSCARAS E FORMATAÇÕES
   const handleCnpjChange = (e) => {
@@ -562,34 +562,45 @@ function App() {
     const [h, m] = tempoCalculadoraAN.split(':').map(Number);
     if (m > 59) return alert("Os minutos não podem ser maiores que 59!");
 
-    // Usando a lógica celular conforme validado: (Salario / 220) * Tempo Literal * 20%
     const tempoCelular = parseFloat(tempoCalculadoraAN.replace(':', '.'));
     const valorFinal = (salario / 220) * tempoCelular * 0.20;
 
     setResultadoAN({ 
         total: valorFinal, 
         tipo: 'provento', 
-        titulo: 'Total a Receber:'
+        titulo: 'Total a Receber:',
+        detalhes: `Conta da Calculadora: (${formatarMoeda(salario)} ÷ 220) × ${tempoCelular} × 20%`
     });
   };
 
   return (
-    <div className="flex h-screen bg-gray-50 font-sans">
+    <div className="flex h-screen bg-gray-50 font-sans overflow-hidden">
       
+      {/* OVERLAY PARA O MENU MOBILE */}
+      {menuAberto && (
+        <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setMenuAberto(false)}></div>
+      )}
+
       {/* BARRA LATERAL (SIDEBAR) */}
-      <aside className="w-64 bg-[#0f172a] text-white flex flex-col justify-between shrink-0">
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#0f172a] text-white flex flex-col justify-between transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${menuAberto ? 'translate-x-0' : '-translate-x-full'}`}>
         <div>
-          <div className="p-6 flex items-center space-x-3 mb-4">
-             <img src="/logo.png" alt="Logo Grupo Vincent" className="w-8 h-8 object-contain rounded" />
-             <div>
-                <h1 className="font-bold text-lg leading-tight">Grupo Vincent</h1>
-                <p className="text-xs text-slate-400">Folha de Pagamento</p>
+          <div className="p-6 flex items-center justify-between mb-4">
+             <div className="flex items-center space-x-3">
+                 <img src="/logo.png" alt="Logo Grupo Vincent" className="w-8 h-8 object-contain rounded" />
+                 <div>
+                    <h1 className="font-bold text-lg leading-tight">Grupo Vincent</h1>
+                    <p className="text-xs text-slate-400">Folha de Pagamento</p>
+                 </div>
              </div>
+             {/* BOTÃO FECHAR MENU MOBILE */}
+             <button className="md:hidden text-slate-400 hover:text-white" onClick={() => setMenuAberto(false)}>
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+             </button>
           </div>
           <nav className="space-y-2 px-4">
-            <button onClick={() => setAbaAtiva('gerar-folha')} className={`w-full text-left px-4 py-3 rounded-lg transition-all flex items-center space-x-3 ${abaAtiva === 'gerar-folha' ? 'bg-slate-800 text-white shadow-lg' : 'hover:bg-slate-800/50 text-slate-400 hover:text-white'}`}><span>Gerar Folha</span></button>
-            <button onClick={() => setAbaAtiva('rescisao')} className={`w-full text-left px-4 py-3 rounded-lg transition-all flex items-center space-x-3 ${abaAtiva === 'rescisao' ? 'bg-slate-800 text-white shadow-lg' : 'hover:bg-slate-800/50 text-slate-400 hover:text-white'}`}><span>Rescisão</span></button>
-            <button onClick={() => setAbaAtiva('calculadora')} className={`w-full text-left px-4 py-3 rounded-lg transition-all flex items-center space-x-3 ${abaAtiva === 'calculadora' ? 'bg-slate-800 text-white shadow-lg' : 'hover:bg-slate-800/50 text-slate-400 hover:text-white'}`}><span>Calculadora</span></button>
+            <button onClick={() => trocarAba('gerar-folha')} className={`w-full text-left px-4 py-3 rounded-lg transition-all flex items-center space-x-3 ${abaAtiva === 'gerar-folha' ? 'bg-slate-800 text-white shadow-lg' : 'hover:bg-slate-800/50 text-slate-400 hover:text-white'}`}><span>Gerar Folha</span></button>
+            <button onClick={() => trocarAba('rescisao')} className={`w-full text-left px-4 py-3 rounded-lg transition-all flex items-center space-x-3 ${abaAtiva === 'rescisao' ? 'bg-slate-800 text-white shadow-lg' : 'hover:bg-slate-800/50 text-slate-400 hover:text-white'}`}><span>Rescisão</span></button>
+            <button onClick={() => trocarAba('calculadora')} className={`w-full text-left px-4 py-3 rounded-lg transition-all flex items-center space-x-3 ${abaAtiva === 'calculadora' ? 'bg-slate-800 text-white shadow-lg' : 'hover:bg-slate-800/50 text-slate-400 hover:text-white'}`}><span>Calculadora</span></button>
           </nav>
         </div>
         <div className="p-6">
@@ -602,22 +613,35 @@ function App() {
 
       {/* CONTEÚDO PRINCIPAL */}
       <main className="flex-1 flex flex-col h-screen overflow-y-auto">
-        <header className="bg-white border-b border-gray-200 h-16 shrink-0"></header>
+        
+        {/* HEADER MOBILE */}
+        <header className="md:hidden bg-[#0f172a] text-white h-16 flex items-center justify-between px-4 shrink-0 shadow-md">
+            <div className="flex items-center space-x-2">
+                <img src="/logo.png" alt="Logo Grupo Vincent" className="w-8 h-8 object-contain rounded" />
+                <h1 className="font-bold text-lg">Grupo Vincent</h1>
+            </div>
+            <button onClick={() => setMenuAberto(true)} className="text-slate-200 hover:text-white focus:outline-none">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            </button>
+        </header>
 
-        <div className="p-8 w-full max-w-7xl mx-auto">
+        {/* HEADER DESKTOP */}
+        <header className="hidden md:block bg-white border-b border-gray-200 h-16 shrink-0"></header>
+
+        <div className="p-4 md:p-8 w-full max-w-7xl mx-auto">
             
             {/* ABA 1: GERAR FOLHA */}
             {abaAtiva === 'gerar-folha' && (
                 <div className="animate-in fade-in duration-500">
-                    <div className="mb-8">
-                        <h2 className="text-2xl font-bold text-gray-900">Gerar Folha de Pagamento</h2>
+                    <div className="mb-6 md:mb-8">
+                        <h2 className="text-xl md:text-2xl font-bold text-gray-900">Gerar Folha de Pagamento</h2>
                         <p className="text-gray-500 text-sm mt-1">Adicione manualmente as rubricas e valores para cada funcionário</p>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         <div className="lg:col-span-2 space-y-6">
                             
-                            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                            <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6 shadow-sm">
                                 <h3 className="text-lg font-semibold text-gray-900 mb-1">Funcionário e Competência</h3>
                                 <p className="text-sm text-gray-500 mb-6">Valores em tempo real</p>
                                 
@@ -662,7 +686,7 @@ function App() {
                                         <input type="number" value={salarioFuncionario} onChange={(e) => setSalarioFuncionario(e.target.value)} placeholder="Ex: 3200" className="w-full border border-gray-300 rounded-md px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold text-gray-900 bg-gray-50" />
                                         
                                         {usarDiasProporcionais && (
-                                            <div className="flex space-x-3 mt-3 p-3 bg-blue-50/50 rounded-lg border border-blue-100">
+                                            <div className="flex flex-col md:flex-row gap-3 mt-3 p-3 bg-blue-50/50 rounded-lg border border-blue-100">
                                                 <div className="flex-1">
                                                     <label className="block text-xs font-medium text-gray-600 mb-1">Início</label>
                                                     <input type="date" value={dataInicioProp} onChange={(e) => setDataInicioProp(e.target.value)} className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-blue-500" />
@@ -685,13 +709,13 @@ function App() {
                                 )}
                                 
                                 {modoAdicao === 'selecionando_tipo' && (
-                                    <div className="bg-white rounded-xl border border-blue-200 p-4 shadow-sm flex items-center space-x-3">
-                                        <p className="text-sm font-medium text-gray-700 mr-2">Qual tipo de rubrica deseja adicionar?</p>
+                                    <div className="bg-white rounded-xl border border-blue-200 p-4 shadow-sm flex flex-wrap items-center gap-3">
+                                        <p className="text-sm font-medium text-gray-700 w-full md:w-auto">Qual tipo de rubrica deseja adicionar?</p>
                                         
-                                        <button onClick={() => { setTipoNovoItem('provento'); setModoAdicao('preenchendo'); }} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm transition-colors">Provento</button>
-                                        <button onClick={() => { setTipoNovoItem('desconto'); setModoAdicao('preenchendo'); }} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm transition-colors">Desconto</button>
+                                        <button onClick={() => { setTipoNovoItem('provento'); setModoAdicao('preenchendo'); }} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm transition-colors flex-1 md:flex-none">Provento</button>
+                                        <button onClick={() => { setTipoNovoItem('desconto'); setModoAdicao('preenchendo'); }} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm transition-colors flex-1 md:flex-none">Desconto</button>
                                         
-                                        <div className="w-px h-6 bg-gray-300 mx-1"></div>
+                                        <div className="hidden md:block w-px h-6 bg-gray-300 mx-1"></div>
                                         
                                         <button onClick={() => { 
                                             if (!salarioFuncionario || parseFloat(salarioFuncionario) <= 0) {
@@ -700,9 +724,9 @@ function App() {
                                             setTipoNovoItem('fixa'); 
                                             setRubricaFixaSelecionada('falta');
                                             setModoAdicao('preenchendo_fixa'); 
-                                        }} className="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-md text-sm transition-colors">Fixa</button>
+                                        }} className="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-md text-sm transition-colors flex-1 md:flex-none">Fixa</button>
                                         
-                                        <button onClick={() => setModoAdicao('inativo')} className="text-gray-500 text-sm hover:underline ml-auto">Cancelar</button>
+                                        <button onClick={() => setModoAdicao('inativo')} className="text-gray-500 text-sm hover:underline w-full md:w-auto md:ml-auto text-center mt-2 md:mt-0">Cancelar</button>
                                     </div>
                                 )}
                                 
@@ -712,8 +736,8 @@ function App() {
                                             <h4 className="font-medium text-gray-800">Novo {tipoNovoItem === 'provento' ? <span className="text-blue-600">Provento</span> : <span className="text-red-600">Desconto</span>} (Avulso)</h4>
                                             <button onClick={() => setModoAdicao('inativo')} className="text-gray-400 hover:text-gray-600 text-sm">✕</button>
                                         </div>
-                                        <div className="flex items-end space-x-4">
-                                            <div className="w-24">
+                                        <div className="flex flex-col md:flex-row md:items-end gap-4">
+                                            <div className="w-full md:w-24">
                                                 <label className="block text-xs font-medium text-gray-700 mb-1">Código</label>
                                                 <input type="text" value={novoCodigo} onChange={(e) => setNovoCodigo(e.target.value.replace(/\D/g, '').slice(0,3))} placeholder="001" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" />
                                             </div>
@@ -721,11 +745,11 @@ function App() {
                                                 <label className="block text-xs font-medium text-gray-700 mb-1">Descrição</label>
                                                 <input type="text" value={novaDescricao} onChange={(e) => setNovaDescricao(e.target.value)} placeholder="Ex: Bonificação" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" />
                                             </div>
-                                            <div className="w-32">
+                                            <div className="w-full md:w-32">
                                                 <label className="block text-xs font-medium text-gray-700 mb-1">Valor</label>
                                                 <input type="text" value={novoValor} onChange={(e) => setNovoValor(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="3200,00" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" />
                                             </div>
-                                            <button onClick={handleSalvarRubrica} className="bg-slate-800 text-white px-4 py-2 rounded-md text-sm h-[38px]">Salvar</button>
+                                            <button onClick={handleSalvarRubrica} className="w-full md:w-auto bg-slate-800 text-white px-4 py-2 rounded-md text-sm h-[38px]">Salvar</button>
                                         </div>
                                     </div>
                                 )}
@@ -736,8 +760,8 @@ function App() {
                                             <h4 className="font-medium text-slate-800">Nova Rubrica Fixa</h4>
                                             <button onClick={() => setModoAdicao('inativo')} className="text-gray-400 hover:text-gray-600 text-sm">✕</button>
                                         </div>
-                                        <div className="flex items-end space-x-4">
-                                            <div className="w-56">
+                                        <div className="flex flex-col md:flex-row md:items-end gap-4">
+                                            <div className="w-full md:w-56">
                                                 <label className="block text-xs font-medium text-gray-700 mb-1">Tipo</label>
                                                 <select 
                                                     value={rubricaFixaSelecionada} 
@@ -761,22 +785,22 @@ function App() {
                                             </div>
                                             
                                             {rubricaFixaSelecionada === 'falta' && (
-                                                <div className="w-32">
+                                                <div className="w-full md:w-32">
                                                     <label className="block text-xs font-medium text-gray-700 mb-1">Qtd. de Dias</label>
                                                     <input type="number" value={diasFalta} onChange={(e) => setDiasFalta(e.target.value)} placeholder="Ex: 2" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
                                                 </div>
                                             )}
 
                                             {(rubricaFixaSelecionada.startsWith('he_') || rubricaFixaSelecionada.startsWith('cred_') || rubricaFixaSelecionada === 'atraso' || rubricaFixaSelecionada === 'adicional_noturno') && (
-                                                <div className="w-32">
+                                                <div className="w-full md:w-32">
                                                     <label className="block text-xs font-medium text-gray-700 mb-1">Tempo (HH:MM)</label>
                                                     <input type="text" value={tempoHEFixa} onChange={handleTempoHEFixaChange} placeholder="Ex: 01:30" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
                                                 </div>
                                             )}
 
-                                            <div className="flex-1 flex flex-col justify-end pb-2">
+                                            <div className="flex-1 flex flex-col justify-end pb-2 md:px-2">
                                                 <span className="text-sm text-gray-500">
-                                                    {rubricaFixaSelecionada === 'falta' || rubricaFixaSelecionada === 'atraso' ? 'Valor Descontado:' : 'Valor do Provento:'}
+                                                    {rubricaFixaSelecionada === 'falta' || rubricaFixaSelecionada === 'atraso' ? 'Descontado:' : 'Provento:'}
                                                 </span>
                                                 <span className={`text-lg font-bold ${rubricaFixaSelecionada === 'falta' || rubricaFixaSelecionada === 'atraso' ? 'text-red-600' : 'text-blue-600'}`}>
                                                     {(() => {
@@ -805,43 +829,45 @@ function App() {
                                                     })()}
                                                 </span>
                                             </div>
-                                            <button onClick={handleSalvarRubricaFixa} className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-2 rounded-md text-sm h-[38px] transition-colors">Adicionar</button>
+                                            <button onClick={handleSalvarRubricaFixa} className="w-full md:w-auto bg-slate-800 hover:bg-slate-900 text-white px-6 py-2 rounded-md text-sm h-[38px] transition-colors">Adicionar</button>
                                         </div>
                                     </div>
                                 )}
                             </div>
 
                             {(proventos.length > 0 || salarioEfetivoFolha > 0) && (
-                                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden w-full">
                                     <div className="p-4 border-b border-gray-100"><h3 className="text-blue-500 text-lg font-medium">Proventos</h3></div>
-                                    <table className="w-full text-left border-collapse">
-                                        <thead>
-                                            <tr className="border-b border-gray-200">
-                                                <th className="py-3 px-4 text-sm font-medium w-24">Cód</th>
-                                                <th className="py-3 px-4 text-sm font-medium">Descrição</th>
-                                                <th className="py-3 px-4 text-sm font-medium text-right w-32">Valor</th>
-                                                <th className="py-3 px-4 text-sm font-medium text-center w-20">Ações</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {salarioEfetivoFolha > 0 && (
-                                                <tr className="border-b border-gray-100 bg-blue-50/30">
-                                                    <td className="py-3 px-4 text-sm text-gray-600">001</td>
-                                                    <td className="py-3 px-4 text-sm text-gray-800 font-medium">{descricaoSalarioBase}</td>
-                                                    <td className="py-3 px-4 text-right text-sm">{formatarNumeroBr(salarioEfetivoFolha)}</td>
-                                                    <td className="py-3 px-4 text-center text-gray-400">-</td>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left border-collapse min-w-[500px]">
+                                            <thead>
+                                                <tr className="border-b border-gray-200">
+                                                    <th className="py-3 px-4 text-sm font-medium w-24">Cód</th>
+                                                    <th className="py-3 px-4 text-sm font-medium">Descrição</th>
+                                                    <th className="py-3 px-4 text-sm font-medium text-right w-32">Valor</th>
+                                                    <th className="py-3 px-4 text-sm font-medium text-center w-20">Ações</th>
                                                 </tr>
-                                            )}
-                                            {proventos.map(p => (
-                                                <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50">
-                                                    <td className="py-3 px-4 text-sm text-gray-600">{p.codigo}</td>
-                                                    <td className="py-3 px-4 text-sm text-gray-800">{p.descricao}</td>
-                                                    <td className="py-3 px-4 text-right text-sm">{formatarNumeroBr(p.valor)}</td>
-                                                    <td className="py-3 px-4 text-center"><button onClick={() => handleRemoverRubrica(p.id)} className="text-red-500 hover:text-red-700 font-bold">✕</button></td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                            </thead>
+                                            <tbody>
+                                                {salarioEfetivoFolha > 0 && (
+                                                    <tr className="border-b border-gray-100 bg-blue-50/30">
+                                                        <td className="py-3 px-4 text-sm text-gray-600">001</td>
+                                                        <td className="py-3 px-4 text-sm text-gray-800 font-medium">{descricaoSalarioBase}</td>
+                                                        <td className="py-3 px-4 text-right text-sm">{formatarNumeroBr(salarioEfetivoFolha)}</td>
+                                                        <td className="py-3 px-4 text-center text-gray-400">-</td>
+                                                    </tr>
+                                                )}
+                                                {proventos.map(p => (
+                                                    <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50">
+                                                        <td className="py-3 px-4 text-sm text-gray-600">{p.codigo}</td>
+                                                        <td className="py-3 px-4 text-sm text-gray-800">{p.descricao}</td>
+                                                        <td className="py-3 px-4 text-right text-sm">{formatarNumeroBr(p.valor)}</td>
+                                                        <td className="py-3 px-4 text-center"><button onClick={() => handleRemoverRubrica(p.id)} className="text-red-500 hover:text-red-700 font-bold">✕</button></td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                     <div className="bg-gray-50/80 p-4 flex justify-between items-center border-t border-gray-200">
                                         <span className="text-sm font-medium">Total Proventos</span>
                                         <span className="text-blue-600 font-bold">{formatarMoeda(totalProventos)}</span>
@@ -850,28 +876,30 @@ function App() {
                             )}
 
                             {descontos.length > 0 && (
-                                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mt-6">
+                                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden w-full mt-6">
                                     <div className="p-4 border-b border-gray-100"><h3 className="text-red-500 text-lg font-medium">Descontos</h3></div>
-                                    <table className="w-full text-left border-collapse">
-                                        <thead>
-                                            <tr className="border-b border-gray-200">
-                                                <th className="py-3 px-4 text-sm font-medium w-24">Cód</th>
-                                                <th className="py-3 px-4 text-sm font-medium">Descrição</th>
-                                                <th className="py-3 px-4 text-sm font-medium text-right w-32">Valor</th>
-                                                <th className="py-3 px-4 text-sm font-medium text-center w-20">Ações</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {descontos.map(d => (
-                                                <tr key={d.id} className="border-b border-gray-100 hover:bg-gray-50">
-                                                    <td className="py-3 px-4 text-sm text-gray-600">{d.codigo}</td>
-                                                    <td className="py-3 px-4 text-sm text-gray-800">{d.descricao}</td>
-                                                    <td className="py-3 px-4 text-right text-sm">{formatarNumeroBr(d.valor)}</td>
-                                                    <td className="py-3 px-4 text-center"><button onClick={() => handleRemoverRubrica(d.id)} className="text-red-500 hover:text-red-700 font-bold">✕</button></td>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left border-collapse min-w-[500px]">
+                                            <thead>
+                                                <tr className="border-b border-gray-200">
+                                                    <th className="py-3 px-4 text-sm font-medium w-24">Cód</th>
+                                                    <th className="py-3 px-4 text-sm font-medium">Descrição</th>
+                                                    <th className="py-3 px-4 text-sm font-medium text-right w-32">Valor</th>
+                                                    <th className="py-3 px-4 text-sm font-medium text-center w-20">Ações</th>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                            </thead>
+                                            <tbody>
+                                                {descontos.map(d => (
+                                                    <tr key={d.id} className="border-b border-gray-100 hover:bg-gray-50">
+                                                        <td className="py-3 px-4 text-sm text-gray-600">{d.codigo}</td>
+                                                        <td className="py-3 px-4 text-sm text-gray-800">{d.descricao}</td>
+                                                        <td className="py-3 px-4 text-right text-sm">{formatarNumeroBr(d.valor)}</td>
+                                                        <td className="py-3 px-4 text-center"><button onClick={() => handleRemoverRubrica(d.id)} className="text-red-500 hover:text-red-700 font-bold">✕</button></td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                     <div className="bg-gray-50/80 p-4 flex justify-between items-center border-t border-gray-200">
                                         <span className="text-sm font-medium">Total Descontos</span>
                                         <span className="text-red-600 font-bold">{formatarMoeda(totalDescontos)}</span>
@@ -900,10 +928,10 @@ function App() {
             {/* ABA 2: RESCISÃO */}
             {abaAtiva === 'rescisao' && (
                 <div className="max-w-3xl mx-auto w-full animate-in slide-in-from-right duration-500">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Cálculo de Rescisão</h2>
+                    <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6">Cálculo de Rescisão</h2>
                     
                     {/* BLOCO: DADOS DA EMPRESA E FUNCIONÁRIO (Sincronizado) */}
-                    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm mb-6">
+                    <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6 shadow-sm mb-6">
                         <h3 className="text-lg font-semibold text-gray-900 mb-4">Dados da Empresa e Funcionário</h3>
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div className="md:col-span-1">
@@ -930,7 +958,7 @@ function App() {
                     </div>
 
                     {/* BLOCO: DADOS DA RESCISÃO */}
-                    <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm space-y-6">
+                    <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-8 shadow-sm space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <div className="flex justify-between items-center mb-1">
@@ -968,10 +996,10 @@ function App() {
                         </div>
 
                         {resultadoRescisao && (
-                            <div className="mt-8 p-6 bg-slate-50 rounded-xl border border-slate-200 text-sm space-y-4">
+                            <div className="mt-8 p-4 md:p-6 bg-slate-50 rounded-xl border border-slate-200 text-sm space-y-4">
                                 <h4 className="font-bold text-lg text-slate-800 mb-4 border-b border-gray-200 pb-3">
                                     Resumo do Cálculo 
-                                    <span className="text-sm font-normal text-gray-500 ml-2">({resultadoRescisao.avos} avos de direito)</span>
+                                    <span className="text-sm font-normal text-gray-500 md:ml-2 block md:inline">({resultadoRescisao.avos} avos de direito)</span>
                                 </h4>
                                 <div className="flex justify-between items-center"><span className="text-gray-600">Saldo de Salário:</span><span className="font-medium text-gray-900 text-base">{formatarMoeda(resultadoRescisao.saldoSalario)}</span></div>
                                 <div className="flex justify-between items-center"><span className="text-gray-600">13º Salário Proporcional:</span><span className="font-medium text-gray-900 text-base">{formatarMoeda(resultadoRescisao.decimoTerceiro)}</span></div>
@@ -982,7 +1010,7 @@ function App() {
                                     <div className="flex justify-between items-center pt-2"><span className="text-blue-600 font-medium">Aviso Prévio Indenizado:</span><span className="font-bold text-blue-600 text-base">{formatarMoeda(resultadoRescisao.avisoPrevio)}</span></div>
                                 )}
                                 
-                                <div className="flex justify-between items-center font-bold text-2xl mt-6 border-t border-gray-200 pt-6 text-slate-900">
+                                <div className="flex justify-between items-center font-bold text-xl md:text-2xl mt-6 border-t border-gray-200 pt-6 text-slate-900">
                                     <span>Total Líquido:</span><span className="text-blue-600">{formatarMoeda(resultadoRescisao.total)}</span>
                                 </div>
 
@@ -1002,10 +1030,10 @@ function App() {
             {abaAtiva === 'calculadora' && (
                 <div className="max-w-2xl mx-auto w-full animate-in slide-in-from-right duration-500 pb-12">
                     
-                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Calculadora Rápida (Decimal)</h2>
+                    <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6">Calculadora Rápida (Decimal)</h2>
                     {/* CAIXA 1: CÁLCULO DECIMAL (PADRÃO SISTEMA/CONTÁBIL) */}
-                    <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-8 shadow-sm space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Salário Base (R$)</label>
                                 <input type="number" placeholder="Ex: 2000" value={salarioBaseHE} onChange={(e) => setSalarioBaseHE(e.target.value)} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none" />
@@ -1041,7 +1069,7 @@ function App() {
                                 ) : (
                                     <>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Tempo (HH:MM)</label>
-                                        <input type="text" placeholder="Ex: 00:00" value={tempoCalculadora} onChange={(e) => setTempoCalculadora(aplicarMascaraHora(e.target.value))} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
+                                        <input type="text" placeholder="Ex: 05:45" value={tempoCalculadora} onChange={(e) => setTempoCalculadora(aplicarMascaraHora(e.target.value))} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
                                     </>
                                 )}
                             </div>
@@ -1054,8 +1082,8 @@ function App() {
                         </div>
 
                         {resultadoHE && (
-                            <div className={`mt-8 p-6 rounded-xl border ${resultadoHE.tipo === 'desconto' ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'}`}>
-                                <div className="flex justify-between items-center font-bold text-2xl text-slate-900">
+                            <div className={`mt-8 p-4 md:p-6 rounded-xl border ${resultadoHE.tipo === 'desconto' ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'}`}>
+                                <div className="flex justify-between items-center font-bold text-xl md:text-2xl text-slate-900">
                                     <span>{resultadoHE.titulo}</span>
                                     <span className={resultadoHE.tipo === 'desconto' ? 'text-red-600' : 'text-blue-600'}>{formatarMoeda(resultadoHE.total)}</span>
                                 </div>
@@ -1063,11 +1091,11 @@ function App() {
                         )}
                     </div>
 
-                    <h2 className="text-2xl font-bold text-gray-900 mt-12 mb-6">Cálculo Padrão Celular / Calculadora</h2>
+                    <h2 className="text-xl md:text-2xl font-bold text-gray-900 mt-12 mb-6">Cálculo Padrão Celular / Calculadora</h2>
                     
                     {/* CAIXA 2: CÁLCULO PADRÃO CELULAR (MANUAL / DP) */}
-                    <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-8 shadow-sm space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Salário Base (R$)</label>
                                 <input type="number" placeholder="Ex: 2000" value={salarioBaseHE2} onChange={(e) => setSalarioBaseHE2(e.target.value)} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none" />
@@ -1094,7 +1122,7 @@ function App() {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Tempo (HH:MM)</label>
-                                <input type="text" placeholder="Ex: 00:00" value={tempoCalculadora2} onChange={(e) => setTempoCalculadora2(aplicarMascaraHora(e.target.value))} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
+                                <input type="text" placeholder="Ex: 15:45" value={tempoCalculadora2} onChange={(e) => setTempoCalculadora2(aplicarMascaraHora(e.target.value))} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
                             </div>
                         </div>
                         
@@ -1105,30 +1133,30 @@ function App() {
                         </div>
 
                         {resultadoHE2 && (
-                            <div className={`mt-8 p-6 rounded-xl border ${resultadoHE2.tipo === 'desconto' ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'}`}>
-                                <div className="flex justify-between items-center font-bold text-2xl text-slate-900 mb-2">
+                            <div className={`mt-8 p-4 md:p-6 rounded-xl border ${resultadoHE2.tipo === 'desconto' ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'}`}>
+                                <div className="flex justify-between items-center font-bold text-xl md:text-2xl text-slate-900 mb-2">
                                     <span>{resultadoHE2.titulo}</span>
                                     <span className={resultadoHE2.tipo === 'desconto' ? 'text-red-600' : 'text-blue-600'}>{formatarMoeda(resultadoHE2.total)}</span>
                                 </div>
-                                <div className="text-sm text-gray-500 font-medium text-right border-t border-gray-200/50 pt-2 mt-2">
+                                <div className="text-xs md:text-sm text-gray-500 font-medium text-right border-t border-gray-200/50 pt-2 mt-2">
                                     {resultadoHE2.detalhes}
                                 </div>
                             </div>
                         )}
                     </div>
 
-                    <h2 className="text-2xl font-bold text-gray-900 mt-12 mb-6">Cálculo de Adicional Noturno (20%)</h2>
+                    <h2 className="text-xl md:text-2xl font-bold text-gray-900 mt-12 mb-6">Cálculo de Adicional Noturno (20%)</h2>
                     
                     {/* CAIXA 3: ADICIONAL NOTURNO (EXCLUSIVA) */}
-                    <div className="bg-white rounded-xl border border-gray-200 p-8 shadow-sm space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-8 shadow-sm space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Salário Base (R$)</label>
                                 <input type="number" placeholder="Ex: 2500" value={salarioBaseAN} onChange={(e) => setSalarioBaseAN(e.target.value)} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Tempo (HH:MM)</label>
-                                <input type="text" placeholder="Ex: 00:00" value={tempoCalculadoraAN} onChange={(e) => setTempoCalculadoraAN(aplicarMascaraHora(e.target.value))} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
+                                <input type="text" placeholder="Ex: 00:56" value={tempoCalculadoraAN} onChange={(e) => setTempoCalculadoraAN(aplicarMascaraHora(e.target.value))} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
                             </div>
                         </div>
                         
@@ -1139,12 +1167,12 @@ function App() {
                         </div>
 
                         {resultadoAN && (
-                            <div className="mt-8 p-6 rounded-xl border bg-blue-50 border-blue-200">
-                                <div className="flex justify-between items-center font-bold text-2xl text-slate-900 mb-2">
+                            <div className="mt-8 p-4 md:p-6 rounded-xl border bg-blue-50 border-blue-200">
+                                <div className="flex justify-between items-center font-bold text-xl md:text-2xl text-slate-900 mb-2">
                                     <span>{resultadoAN.titulo}</span>
                                     <span className="text-blue-600">{formatarMoeda(resultadoAN.total)}</span>
                                 </div>
-                                <div className="text-sm text-gray-500 font-medium text-right border-t border-gray-200/50 pt-2 mt-2">
+                                <div className="text-xs md:text-sm text-gray-500 font-medium text-right border-t border-gray-200/50 pt-2 mt-2">
                                     {resultadoAN.detalhes}
                                 </div>
                             </div>
