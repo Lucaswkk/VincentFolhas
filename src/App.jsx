@@ -3,7 +3,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 function App() {
-  // ESTADOS DE NAVEGAÇÃO E MOBILE
+  // ESTADO DE NAVEGAÇÃO E MOBILE
   const [abaAtiva, setAbaAtiva] = useState('gerar-folha');
   const [menuAberto, setMenuAberto] = useState(false);
 
@@ -23,15 +23,21 @@ function App() {
   const [dataEntrada, setDataEntrada] = useState(''); 
   const [dataCompetencia, setDataCompetencia] = useState('');
   const [salarioFuncionario, setSalarioFuncionario] = useState(''); 
+  
+  // Controle de Dias Proporcionais
   const [usarDiasProporcionais, setUsarDiasProporcionais] = useState(false);
   const [dataInicioProp, setDataInicioProp] = useState('');
   const [dataFimProp, setDataFimProp] = useState('');
+
+  // Rubricas
   const [rubricas, setRubricas] = useState([]);
   const [modoAdicao, setModoAdicao] = useState('inativo'); 
   const [tipoNovoItem, setTipoNovoItem] = useState(''); 
   const [novoCodigo, setNovoCodigo] = useState('');
   const [novaDescricao, setNovaDescricao] = useState('');
   const [novoValor, setNovoValor] = useState('');
+  
+  // Rubricas Fixas
   const [rubricaFixaSelecionada, setRubricaFixaSelecionada] = useState('falta');
   const [diasFalta, setDiasFalta] = useState(''); 
   const [tempoHEFixa, setTempoHEFixa] = useState(''); 
@@ -310,6 +316,11 @@ function App() {
     doc.line(80, finalY + 20, 196, finalY + 20);
     doc.text('ASSINATURA DO FUNCIONÁRIO', 138, finalY + 25, { align: 'center' });
 
+    // Aviso de validade jurídica
+    doc.setFontSize(6);
+    doc.setTextColor(200, 200, 200);
+    doc.text('DOCUMENTO SEM VALIDADE JURÍDICA — MERAMENTE INFORMATIVO', 105, finalY + 38, { align: 'center' });
+
     // Forçar download no Mobile e PC
     const fileName = `Holerite_${funcionario ? funcionario.replace(/\s+/g, '_') : 'Funcionario'}.pdf`;
     const blob = doc.output('blob');
@@ -489,6 +500,11 @@ function App() {
     doc.line(80, finalY, 196, finalY);
     doc.text('ASSINATURA DO FUNCIONÁRIO', 138, finalY + 5, { align: 'center' });
     
+    // Aviso de validade jurídica
+    doc.setFontSize(6);
+    doc.setTextColor(200, 200, 200);
+    doc.text('DOCUMENTO SEM VALIDADE JURÍDICA — MERAMENTE INFORMATIVO', 105, finalY + 18, { align: 'center' });
+
     // Forçar download no Mobile e PC
     const fileName = `Rescisao_${funcionario ? funcionario.replace(/\s+/g, '_') : 'Funcionario'}.pdf`;
     const blob = doc.output('blob');
@@ -582,6 +598,7 @@ function App() {
     const [h, m] = tempoCalculadoraAN.split(':').map(Number);
     if (m > 59) return alert("Os minutos não podem ser maiores que 59!");
 
+    // Usando a lógica celular conforme validado: (Salario / 220) * Tempo Literal * 20%
     const tempoCelular = parseFloat(tempoCalculadoraAN.replace(':', '.'));
     const valorFinal = (salario / 220) * tempoCelular * 0.20;
 
@@ -1089,7 +1106,7 @@ function App() {
                                 ) : (
                                     <>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Tempo (HH:MM)</label>
-                                        <input type="text" placeholder="Ex: 00:00" value={tempoCalculadora} onChange={(e) => setTempoCalculadora(aplicarMascaraHora(e.target.value))} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
+                                        <input type="text" placeholder="Ex: 05:45" value={tempoCalculadora} onChange={(e) => setTempoCalculadora(aplicarMascaraHora(e.target.value))} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
                                     </>
                                 )}
                             </div>
@@ -1142,7 +1159,7 @@ function App() {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Tempo (HH:MM)</label>
-                                <input type="text" placeholder="Ex: 00:00" value={tempoCalculadora2} onChange={(e) => setTempoCalculadora2(aplicarMascaraHora(e.target.value))} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
+                                <input type="text" placeholder="Ex: 15:45" value={tempoCalculadora2} onChange={(e) => setTempoCalculadora2(aplicarMascaraHora(e.target.value))} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
                             </div>
                         </div>
                         
@@ -1176,7 +1193,7 @@ function App() {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Tempo (HH:MM)</label>
-                                <input type="text" placeholder="Ex: 00:00" value={tempoCalculadoraAN} onChange={(e) => setTempoCalculadoraAN(aplicarMascaraHora(e.target.value))} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
+                                <input type="text" placeholder="Ex: 00:56" value={tempoCalculadoraAN} onChange={(e) => setTempoCalculadoraAN(aplicarMascaraHora(e.target.value))} className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest font-medium" />
                             </div>
                         </div>
                         
