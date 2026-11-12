@@ -113,7 +113,10 @@ function App() {
     return v;
   };
 
-  const handleTempoHEFixaChange = (e) => setTempoHEFixa(aplicarMascaraHora(e.target.value));
+  const handleTempoHEFixaChange = (e) => {
+    const tempo = aplicarMascaraHora(e.target.value);
+    setTempoHEFixa(abaAtiva === 'rescisao' && tipoVinculoRescisao === 'estagio' ? tempo.replace(':', ',') : tempo);
+  };
 
   const formatarNumeroBr = (valor) => valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const formatarMoeda = (valor) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
@@ -284,24 +287,24 @@ function App() {
         setModoAdicao('inativo');
         setDiasFalta('');
     } else {
-        if (!tempoHEFixa || tempoHEFixa.length !== 5) return alert("Preencha as horas (HH:MM)!");
-        const [h, m] = tempoHEFixa.split(':').map(Number);
+        if (!tempoHEFixa || tempoHEFixa.length !== 5) return alert("Preencha as horas e os minutos (ex.: 01:30 ou 01,30)!");
+        const [h, m] = tempoHEFixa.split(/[:,]/).map(Number);
         if (m > 59) return alert("Minutos inválidos!");
 
         const horasDecimais = h + (m / 60);
         const estagioAtivo = abaAtiva === 'rescisao' && tipoVinculoRescisao === 'estagio';
-        const divisorAtraso = estagioAtivo ? 120 : 220;
+        const divisorHoras = estagioAtivo ? 120 : 220;
 
         if (rubricaFixaSelecionada === 'atraso') {
-            setActiveRubricas([...activeRubricas, { id: Date.now(), tipo: 'desconto', codigo: 'ATR', descricao: `Atraso (${tempoHEFixa})`, valor: horasDecimais * (activeSalario / divisorAtraso) }]);
+            setActiveRubricas([...activeRubricas, { id: Date.now(), tipo: 'desconto', codigo: 'ATR', descricao: `Atraso (${tempoHEFixa})`, valor: horasDecimais * (activeSalario / divisorHoras) }]);
         } else if (rubricaFixaSelecionada === 'adicional_noturno') {
             setActiveRubricas([...activeRubricas, { id: Date.now(), tipo: 'provento', codigo: `ADN`, descricao: `Adicional Noturno 20% (${tempoHEFixa})`, valor: horasDecimais * (activeSalario / 220) * 0.20 }]);
         } else if (rubricaFixaSelecionada.startsWith('he_')) {
             const perc = parseInt(rubricaFixaSelecionada.split('_')[1]);
-            setActiveRubricas([...activeRubricas, { id: Date.now(), tipo: 'provento', codigo: `HE${perc}`, descricao: `Hora Extra ${perc}% (${tempoHEFixa})`, valor: horasDecimais * ((activeSalario / 220) * (1 + (perc / 100))) }]);
+            setActiveRubricas([...activeRubricas, { id: Date.now(), tipo: 'provento', codigo: estagioAtivo ? 'CRD' : `HE${perc}`, descricao: `Hora Extra ${perc}% (${tempoHEFixa})`, valor: horasDecimais * ((activeSalario / divisorHoras) * (1 + (perc / 100))) }]);
         } else if (rubricaFixaSelecionada.startsWith('cred_')) {
             const perc = parseInt(rubricaFixaSelecionada.split('_')[1]);
-            setActiveRubricas([...activeRubricas, { id: Date.now(), tipo: 'provento', codigo: `CRD`, descricao: estagioAtivo ? `Crédito Diversos ${perc}% (${tempoHEFixa})` : 'Crédito Diversos', valor: horasDecimais * ((activeSalario / 120) * (1 + (perc / 100))) }]);
+            setActiveRubricas([...activeRubricas, { id: Date.now(), tipo: 'provento', codigo: `CRD`, descricao: estagioAtivo ? `Hora Extra ${perc}% (${tempoHEFixa})` : 'Crédito Diversos', valor: horasDecimais * ((activeSalario / 120) * (1 + (perc / 100))) }]);
         }
         setModoAdicao('inativo');
         setTempoHEFixa('');
@@ -1137,13 +1140,13 @@ function App() {
                             className="w-full border border-gray-300 p-2 text-sm rounded outline-none focus:ring-2 focus:ring-blue-500"
                         >
                             <option value="falta">Falta (Dias)</option>
-                            <option value="atraso">Atraso (HH:MM)</option>
+                            <option value="atraso">{somenteEstagio ? 'Atraso (HH,MM)' : 'Atraso (HH:MM)'}</option>
                             {!somenteEstagio && <option value="adicional_noturno">Adicional Noturno 20%</option>}
                             {somenteEstagio ? (
                               <>
-                                <option value="cred_50">Crédito Diversos 50%</option>
-                                <option value="cred_60">Crédito Diversos 60%</option>
-                                <option value="cred_100">Crédito Diversos 100%</option>
+                                <option value="cred_50">Hora Extra 50%</option>
+                                <option value="cred_60">Hora Extra 60%</option>
+                                <option value="cred_100">Hora Extra 100%</option>
                               </>
                             ) : (
                               <>
@@ -1174,11 +1177,12 @@ function App() {
                         </div>
                     ) : (
                         <div className="w-full md:w-32">
-                            <label className="block text-xs font-medium text-gray-700 mb-1">Tempo (HH:MM)</label>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">{somenteEstagio ? 'Tempo (HH,MM)' : 'Tempo (HH:MM)'}</label>
                             <input
                                 type="text"
                                 value={tempoHEFixa}
                                 onChange={handleTempoHEFixaChange}
+                                placeholder={somenteEstagio ? 'Ex: 01,30' : 'Ex: 01:30'}
                                 className="w-full border border-gray-300 p-2 text-sm rounded text-center outline-none focus:ring-2 focus:ring-blue-500"
                             />
                         </div>
@@ -2036,7 +2040,8 @@ function App() {
                           </div>
                           {renderSaldoSalario('estagio', parseFloat(bolsaEstagio) || 0, fimEstagio ? ((parseFloat(bolsaEstagio) || 0) / 30) * parseInt(fimEstagio.split('-')[2], 10) : 0)}
                           <div>
-                            <p className="text-sm text-gray-600 mb-2">Rubricas disponíveis: Falta, Atraso e Crédito Diversos (50%, 60% ou 100%). No PDF, consta apenas Crédito Diverso.</p>
+                            <p className="text-sm text-gray-600 mb-2">Rubricas disponíveis: Falta, Atraso e Hora Extra (50%, 60% ou 100%). No PDF, as horas extras constam como Crédito Diverso.</p>
+                            <p className="text-sm text-gray-600 mb-2">Atraso = (bolsa mensal ÷ 120) × tempo em horas. Hora extra = mesmo cálculo com acréscimo de 50%, 60% ou 100%. Informe 01,30 para 1 hora e 30 minutos.</p>
                             {renderBlocoRubricas(false, '', 0, true)}
                           </div>
                           <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3">
