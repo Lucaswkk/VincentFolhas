@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { calcularHorasEstagio } from './calculoHorasEstagio';
+import { calcularRecessoEstagio } from './calculoRecessoEstagio';
 
 function App() {
   const [abaAtiva, setAbaAtiva] = useState('gerar-folha');
@@ -49,6 +51,10 @@ function App() {
   const [fimEstagio, setFimEstagio] = useState('');
   const [rubricasEstagio, setRubricasEstagio] = useState([]);
   const [resultadoEstagio, setResultadoEstagio] = useState(null);
+  const [incluirRecessoEstagio, setIncluirRecessoEstagio] = useState(false);
+  const [inicioRecessoEstagio, setInicioRecessoEstagio] = useState('');
+  const [fimRecessoEstagio, setFimRecessoEstagio] = useState('');
+  const [debitoDiversos, setDebitoDiversos] = useState('');
 
   const [salarioBaseFerias, setSalarioBaseFerias] = useState('');
   const [diasFerias, setDiasFerias] = useState('30');
@@ -114,8 +120,7 @@ function App() {
   };
 
   const handleTempoHEFixaChange = (e) => {
-    const tempo = aplicarMascaraHora(e.target.value);
-    setTempoHEFixa(abaAtiva === 'rescisao' && tipoVinculoRescisao === 'estagio' ? tempo.replace(':', ',') : tempo);
+    setTempoHEFixa(aplicarMascaraHora(e.target.value));
   };
 
   const formatarNumeroBr = (valor) => valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -281,7 +286,14 @@ function App() {
   };
 
   const handleSalvarRubricaFixa = () => {
-    if (rubricaFixaSelecionada === 'falta') {
+    if (abaAtiva === 'rescisao' && tipoVinculoRescisao === 'estagio' && rubricaFixaSelecionada === 'debito_diversos') {
+        const valor = Number(debitoDiversos);
+        if (!Number.isFinite(valor) || valor <= 0) return alert('Informe um valor de Débito Diversos maior que zero.');
+        if (Math.abs(valor * 100 - Math.round(valor * 100)) > 0.000001) return alert('Informe no máximo duas casas decimais para Débito Diversos.');
+        setActiveRubricas([...activeRubricas, { id: Date.now(), tipo: 'desconto', codigo: 'DBD', descricao: 'Débito Diversos', valor }]);
+        setDebitoDiversos('');
+        setModoAdicao('inativo');
+    } else if (rubricaFixaSelecionada === 'falta') {
         if (!diasFalta || diasFalta <= 0) return;
         setActiveRubricas([...activeRubricas, { id: Date.now(), tipo: 'desconto', codigo: 'FLT', descricao: `Falta (${diasFalta} dias)`, valor: (activeSalario / 30) * parseInt(diasFalta) }]);
         setModoAdicao('inativo');
@@ -296,15 +308,18 @@ function App() {
         const divisorHoras = estagioAtivo ? 120 : 220;
 
         if (rubricaFixaSelecionada === 'atraso') {
-            setActiveRubricas([...activeRubricas, { id: Date.now(), tipo: 'desconto', codigo: 'ATR', descricao: `Atraso (${tempoHEFixa})`, valor: horasDecimais * (activeSalario / divisorHoras) }]);
+            const valor = estagioAtivo ? calcularHorasEstagio(bolsaEstagio || '0', tempoHEFixa) : horasDecimais * (activeSalario / divisorHoras);
+            setActiveRubricas([...activeRubricas, { id: Date.now(), tipo: 'desconto', codigo: 'ATR', descricao: `Atraso (${tempoHEFixa})`, valor }]);
         } else if (rubricaFixaSelecionada === 'adicional_noturno') {
             setActiveRubricas([...activeRubricas, { id: Date.now(), tipo: 'provento', codigo: `ADN`, descricao: `Adicional Noturno 20% (${tempoHEFixa})`, valor: horasDecimais * (activeSalario / 220) * 0.20 }]);
         } else if (rubricaFixaSelecionada.startsWith('he_')) {
             const perc = parseInt(rubricaFixaSelecionada.split('_')[1]);
-            setActiveRubricas([...activeRubricas, { id: Date.now(), tipo: 'provento', codigo: estagioAtivo ? 'CRD' : `HE${perc}`, descricao: `Hora Extra ${perc}% (${tempoHEFixa})`, valor: horasDecimais * ((activeSalario / divisorHoras) * (1 + (perc / 100))) }]);
+            const valor = estagioAtivo ? calcularHorasEstagio(bolsaEstagio || '0', tempoHEFixa, perc) : horasDecimais * ((activeSalario / divisorHoras) * (1 + (perc / 100)));
+            setActiveRubricas([...activeRubricas, { id: Date.now(), tipo: 'provento', codigo: estagioAtivo ? 'CRD' : `HE${perc}`, descricao: `Hora Extra ${perc}% (${tempoHEFixa})`, valor }]);
         } else if (rubricaFixaSelecionada.startsWith('cred_')) {
             const perc = parseInt(rubricaFixaSelecionada.split('_')[1]);
-            setActiveRubricas([...activeRubricas, { id: Date.now(), tipo: 'provento', codigo: `CRD`, descricao: estagioAtivo ? `Hora Extra ${perc}% (${tempoHEFixa})` : 'Crédito Diversos', valor: horasDecimais * ((activeSalario / 120) * (1 + (perc / 100))) }]);
+            const valor = estagioAtivo ? calcularHorasEstagio(bolsaEstagio || '0', tempoHEFixa, perc) : horasDecimais * ((activeSalario / 120) * (1 + (perc / 100)));
+            setActiveRubricas([...activeRubricas, { id: Date.now(), tipo: 'provento', codigo: `CRD`, descricao: estagioAtivo ? `Hora Extra ${perc}% (${tempoHEFixa})` : 'Crédito Diversos', valor }]);
         }
         setModoAdicao('inativo');
         setTempoHEFixa('');
@@ -472,6 +487,7 @@ function App() {
   const descsEstagio = rubricasEstagio.filter(r => r.tipo === 'desconto');
   const sumProvsEstagio = provsEstagio.reduce((a, b) => a + b.valor, 0);
   const sumDescsEstagio = descsEstagio.reduce((a, b) => a + b.valor, 0);
+  const recessoEstagio = incluirRecessoEstagio ? calcularRecessoEstagio(bolsaEstagio, inicioRecessoEstagio, fimRecessoEstagio) : null;
 
   const calcularEncerramentoEstagio = () => {
     const bolsa = parseFloat(bolsaEstagio);
@@ -482,15 +498,16 @@ function App() {
       return alert('A data de encerramento deve ser igual ou posterior ao início do estágio.');
     }
     if (!validarSaldoSalario('estagio')) return;
+    if (incluirRecessoEstagio && !recessoEstagio) return alert('Preencha as datas do recesso. O fim deve ser igual ou posterior ao início.');
     const diasDoMes = parseInt(fimEstagio.split('-')[2], 10);
     const saldoPadrao = (bolsa / 30) * diasDoMes;
     const saldoBolsa = calcularSaldoSalario('estagio', bolsa, saldoPadrao);
-    setResultadoEstagio({ saldoBolsa, bolsa });
+    setResultadoEstagio({ saldoBolsa, bolsa, recesso: recessoEstagio });
   };
 
-  const liquidoEstagioFinal = (resultadoEstagio?.saldoBolsa || 0) + sumProvsEstagio - sumDescsEstagio;
+  const liquidoEstagioFinal = (resultadoEstagio?.saldoBolsa || 0) + (resultadoEstagio?.recesso?.valor || 0) + sumProvsEstagio - sumDescsEstagio;
 
-  const drawPDFHeader = (doc, title) => {
+  const drawPDFHeader = (doc, title, dadosEstagio = null) => {
     const drawField = (label, value, x, y, larguraMaxima = 60) => {
       doc.setFontSize(8);
       doc.setTextColor(100, 116, 139);
@@ -524,8 +541,12 @@ function App() {
     doc.setFillColor(248, 250, 252);
     doc.roundedRect(14, 56, 182, 38, 2, 2, 'FD');
     drawField('NOME DO FUNCIONÁRIO', funcionario || 'Não informado', 18, 62, 78);
-    drawField('CPF', cpf || 'Não informado', 105, 62, 83);
-    drawField('CARGO / FUNÇÃO', cargo || 'Não informado', 18, 78, 118);
+    drawField('CPF', cpf || 'Não informado', dadosEstagio ? 130 : 105, 62, dadosEstagio ? 61 : 83);
+    drawField('CARGO / FUNÇÃO', cargo || 'Não informado', 18, 78, dadosEstagio ? 56 : 118);
+    if (dadosEstagio) {
+      drawField('BOLSA AUXÍLIO', formatarMoeda(dadosEstagio.bolsa), 80, 78, 44);
+      drawField('PERÍODO DO TRABALHO', dadosEstagio.periodoTrabalho, 130, 78, 61);
+    }
 
     return { currentY: 102, drawField };
   };
@@ -702,21 +723,22 @@ function App() {
     if (!resultadoEstagio) return alert('Calcule o encerramento do estágio primeiro!');
 
     const doc = new jsPDF();
-    const { currentY, drawField } = drawPDFHeader(doc, 'DEMONSTRATIVO DE ENCERRAMENTO DE ESTÁGIO');
-    drawField('INÍCIO', inicioEstagio.split('-').reverse().join('/'), 18, currentY, 32);
-    drawField('ENCERRAMENTO', fimEstagio.split('-').reverse().join('/'), 65, currentY, 40);
-    drawField('BOLSA MENSAL', formatarMoeda(resultadoEstagio.bolsa), 125, currentY, 60);
+    const periodoTrabalho = `${inicioEstagio.split('-').reverse().join('/')} a ${fimEstagio.split('-').reverse().join('/')}`;
+    const { currentY } = drawPDFHeader(doc, 'DEMONSTRATIVO DE ENCERRAMENTO DE ESTÁGIO', { bolsa: resultadoEstagio.bolsa, periodoTrabalho });
 
     const tableData = [];
     if (resultadoEstagio.saldoBolsa > 0) {
       tableData.push(['-', descricaoSaldoSalario('estagio', 'Saldo de Bolsa-Auxílio'), formatarNumeroBr(resultadoEstagio.saldoBolsa), '']);
     }
+    if (resultadoEstagio.recesso) {
+      tableData.push(['REC', `Recesso (${resultadoEstagio.recesso.meses} meses)`, formatarNumeroBr(resultadoEstagio.recesso.valor), '']);
+    }
     provsEstagio.forEach(p => tableData.push([p.codigo, p.codigo === 'CRD' ? 'Crédito Diverso' : p.descricao, formatarNumeroBr(p.valor), '']));
     descsEstagio.forEach(d => tableData.push([d.codigo, d.descricao, '', formatarNumeroBr(d.valor)]));
     if (tableData.length === 0) tableData.push(['-', 'Nenhuma verba lançada', '', '']);
 
-    autoTable(doc, {
-      startY: currentY + 16,
+    const opcoesTabela = {
+      startY: currentY,
       head: [['Cód', 'Descrição', 'Proventos (R$)', 'Descontos (R$)']],
       body: tableData,
       theme: 'grid',
@@ -726,20 +748,32 @@ function App() {
         2: { halign: 'right', cellWidth: 40, textColor: [21, 128, 61] },
         3: { halign: 'right', cellWidth: 40, textColor: [185, 28, 28] }
       },
-      styles: { fontSize: 9, cellPadding: 4, lineColor: [226, 232, 240] },
+      styles: { fontSize: 9, cellPadding: 2.5, lineColor: [226, 232, 240] },
       margin: { left: 14, right: 14 }
-    });
+    };
 
-    let finalY = doc.lastAutoTable.finalY + 8;
-    if (finalY + 90 > doc.internal.pageSize.getHeight()) {
-      doc.addPage();
-      finalY = 20;
+    // Reserva espaço para totais, observação e assinatura antes de desenhar.
+    const limiteTabela = doc.internal.pageSize.getHeight() - 100;
+    let tabelaAjustada = false;
+    for (let tentativa = 0; tentativa < 40; tentativa++) {
+      const escala = 0.85 ** tentativa;
+      const styles = { ...opcoesTabela.styles, fontSize: 9 * escala, cellPadding: 2.5 * escala };
+      const previa = new jsPDF();
+      autoTable(previa, { ...opcoesTabela, styles });
+      if (previa.getNumberOfPages() === 1 && previa.lastAutoTable.finalY <= limiteTabela) {
+        autoTable(doc, { ...opcoesTabela, styles });
+        tabelaAjustada = true;
+        break;
+      }
     }
-    finalY = drawPDFTotals(doc, finalY, 'TOTAL CALCULADO', resultadoEstagio.saldoBolsa + sumProvsEstagio, sumDescsEstagio, liquidoEstagioFinal);
+    if (!tabelaAjustada) return alert('Não foi possível ajustar as rubricas em uma página. Reduza a quantidade de lançamentos.');
+
+    let finalY = doc.lastAutoTable.finalY + 6;
+    finalY = drawPDFTotals(doc, finalY, 'TOTAL CALCULADO', resultadoEstagio.saldoBolsa + (resultadoEstagio.recesso?.valor || 0) + sumProvsEstagio, sumDescsEstagio, liquidoEstagioFinal);
     doc.setFontSize(8);
     doc.setTextColor(100, 116, 139);
     doc.setFont('helvetica', 'normal');
-    doc.text('SIMULAÇÃO. RECESSO E EVENTUAIS CONDIÇÕES DO TERMO DE COMPROMISSO NÃO INCLUÍDOS.', 14, finalY + 8);
+    doc.text('SIMULAÇÃO. OUTRAS CONDIÇÕES DO TERMO DE COMPROMISSO NÃO INCLUÍDAS.', 14, finalY + 8);
     drawPDFFooter(doc, finalY + 10, `Encerramento_Estagio_${funcionario ? funcionario.replace(/\s+/g, '_') : 'Estagiario'}.pdf`);
   };
 
@@ -1136,11 +1170,13 @@ function App() {
                                 setRubricaFixaSelecionada(e.target.value);
                                 setDiasFalta('');
                                 setTempoHEFixa('');
+                                setDebitoDiversos('');
                             }}
                             className="w-full border border-gray-300 p-2 text-sm rounded outline-none focus:ring-2 focus:ring-blue-500"
                         >
                             <option value="falta">Falta (Dias)</option>
-                            <option value="atraso">{somenteEstagio ? 'Atraso (HH,MM)' : 'Atraso (HH:MM)'}</option>
+                            <option value="atraso">Atraso (HH:MM)</option>
+                            {somenteEstagio && <option value="debito_diversos">Débito Diversos (Manual)</option>}
                             {!somenteEstagio && <option value="adicional_noturno">Adicional Noturno 20%</option>}
                             {somenteEstagio ? (
                               <>
@@ -1165,7 +1201,12 @@ function App() {
                         </select>
                     </div>
 
-                    {rubricaFixaSelecionada === 'falta' ? (
+                    {somenteEstagio && rubricaFixaSelecionada === 'debito_diversos' ? (
+                        <div className="w-full md:w-40">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Valor do débito (R$)</label>
+                            <input type="number" min="0.01" step="0.01" value={debitoDiversos} onChange={(e) => setDebitoDiversos(e.target.value)} placeholder="0,00" className="w-full border border-gray-300 p-2 text-sm rounded outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                    ) : rubricaFixaSelecionada === 'falta' ? (
                         <div className="w-full md:w-32">
                             <label className="block text-xs font-medium text-gray-700 mb-1">Qtd. Dias</label>
                             <input
@@ -1177,12 +1218,12 @@ function App() {
                         </div>
                     ) : (
                         <div className="w-full md:w-32">
-                            <label className="block text-xs font-medium text-gray-700 mb-1">{somenteEstagio ? 'Tempo (HH,MM)' : 'Tempo (HH:MM)'}</label>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Tempo (HH:MM)</label>
                             <input
                                 type="text"
                                 value={tempoHEFixa}
                                 onChange={handleTempoHEFixaChange}
-                                placeholder={somenteEstagio ? 'Ex: 01,30' : 'Ex: 01:30'}
+                                placeholder={somenteEstagio ? '00:00' : 'Ex: 01:30'}
                                 className="w-full border border-gray-300 p-2 text-sm rounded text-center outline-none focus:ring-2 focus:ring-blue-500"
                             />
                         </div>
@@ -2039,13 +2080,33 @@ function App() {
                             </div>
                           </div>
                           {renderSaldoSalario('estagio', parseFloat(bolsaEstagio) || 0, fimEstagio ? ((parseFloat(bolsaEstagio) || 0) / 30) * parseInt(fimEstagio.split('-')[2], 10) : 0)}
+                          <div className="rounded-xl border border-gray-200 p-4 space-y-4">
+                            <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                              <input type="checkbox" checked={incluirRecessoEstagio} onChange={(e) => { setIncluirRecessoEstagio(e.target.checked); setResultadoEstagio(null); }} />
+                              Incluir recesso automático
+                            </label>
+                            {incluirRecessoEstagio && (
+                              <>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <label className="text-sm text-gray-700">Início do período de recesso
+                                    <input type="date" value={inicioRecessoEstagio} onChange={(e) => { setInicioRecessoEstagio(e.target.value); setResultadoEstagio(null); }} className="block w-full border border-gray-300 p-3 mt-1 rounded-lg" />
+                                  </label>
+                                  <label className="text-sm text-gray-700">Fim do período de recesso
+                                    <input type="date" value={fimRecessoEstagio} min={inicioRecessoEstagio || undefined} onChange={(e) => { setFimRecessoEstagio(e.target.value); setResultadoEstagio(null); }} className="block w-full border border-gray-300 p-3 mt-1 rounded-lg" />
+                                  </label>
+                                </div>
+                                <p className="text-sm text-gray-600">Meses completos contados a partir do dia inicial. Uma fração de 15 dias ou mais, incluindo o dia final, conta como mais um mês. Valor = (bolsa mensal ÷ 12) × meses.</p>
+                                {recessoEstagio && <p className="font-semibold text-blue-700">{recessoEstagio.meses} mês(es) de recesso: {formatarMoeda(recessoEstagio.valor)}</p>}
+                              </>
+                            )}
+                          </div>
                           <div>
-                            <p className="text-sm text-gray-600 mb-2">Rubricas disponíveis: Falta, Atraso e Hora Extra (50%, 60% ou 100%). No PDF, as horas extras constam como Crédito Diverso.</p>
-                            <p className="text-sm text-gray-600 mb-2">Atraso = (bolsa mensal ÷ 120) × tempo em horas. Hora extra = mesmo cálculo com acréscimo de 50%, 60% ou 100%. Informe 01,30 para 1 hora e 30 minutos.</p>
+                            <p className="text-sm text-gray-600 mb-2">Rubricas disponíveis: Falta, Atraso, Hora Extra (50%, 60% ou 100%) e Débito Diversos (valor manual). No PDF, as horas extras constam como Crédito Diverso.</p>
+                            <p className="text-sm text-gray-600 mb-2">Atraso = (bolsa mensal ÷ 120) × tempo informado como decimal (ex.: 00:52 usa 0,52). Hora extra = valor do atraso acrescido de 50%, 60% ou 100%. Em cada etapa, são mantidas apenas duas casas decimais, sem arredondar.</p>
                             {renderBlocoRubricas(false, '', 0, true)}
                           </div>
                           <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3">
-                            Simulação informativa: o cálculo utiliza as fórmulas já existentes do sistema. O recesso de estágio e outras condições do Termo de Compromisso não estão calculados nesta etapa.
+                            Simulação informativa: o cálculo utiliza as fórmulas configuradas no sistema. Outras condições do Termo de Compromisso não estão calculadas nesta etapa.
                           </p>
                           <button
                             onClick={calcularEncerramentoEstagio}
@@ -2062,6 +2123,12 @@ function App() {
                                   <span className="font-medium text-gray-900">{formatarMoeda(resultadoEstagio.saldoBolsa)}</span>
                                 </div>
                               )}
+                              {resultadoEstagio.recesso && (
+                                <div className="flex flex-wrap justify-between gap-2 text-sm">
+                                  <span className="text-gray-600">Recesso ({resultadoEstagio.recesso.meses} meses):</span>
+                                  <span className="font-medium text-green-600">{formatarMoeda(resultadoEstagio.recesso.valor)}</span>
+                                </div>
+                              )}
                               {sumProvsEstagio > 0 && (
                                 <div className="flex flex-wrap justify-between gap-2 text-sm">
                                   <span className="text-gray-600">Horas Extras:</span>
@@ -2070,7 +2137,7 @@ function App() {
                               )}
                               {sumDescsEstagio > 0 && (
                                 <div className="flex flex-wrap justify-between gap-2 text-sm">
-                                  <span className="text-gray-600">Faltas e Atrasos:</span>
+                                  <span className="text-gray-600">Faltas, Atrasos e Débito Diversos:</span>
                                   <span className="font-medium text-red-600">-{formatarMoeda(sumDescsEstagio)}</span>
                                 </div>
                               )}
